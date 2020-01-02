@@ -257,7 +257,7 @@ def cli():
 
         hs_output.to_csv(args.output_path / f'{prefix}_hs.tsv', sep='\t', index=None)
         rt_pp1.to_csv(args.output_path / f'{prefix}_rt_pp1.tsv', sep='\t', index=None)
-        smn_alpha.to_csv(args.output_path / f'{prefix}_smn_alpha.tsv', sep='\t')
+        smn_alpha.to_csv(args.output_path / f'{prefix}_smn_alpha.tsv', sep='\t', index=None)
         positive_CNV_PP2.to_csv(args.output_path / f'{prefix}_other_cnv_pp2.tsv', sep='\t', index=None)
 
 
