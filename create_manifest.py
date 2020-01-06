@@ -58,7 +58,7 @@ male_controls  = ['C00259', 'C00260', 'C00261', 'C00262', 'C00263']
 exclude_plates = ['PPU70017-1A', 'PPU70018-1B', 'PPU70020-1D']
 
 prod_run_data = prod_run_data.loc[~prod_run_data['PLATE'].isin(exclude_plates)]
-prod_run_data = prod_run_data.loc[(prod_run_data['PROPS_ID'].isin(male_controls)) | (prod_run_data['CONTROL_SAMPLE'] == 'Test')]
+#prod_run_data = prod_run_data.loc[(prod_run_data['PROPS_ID'].isin(male_controls)) | (prod_run_data['CONTROL_SAMPLE'] == 'Test')]
 prod_run_data = prod_run_data.loc[~prod_run_data['SAMPLE_ID'].isin(exclude_samples['exclude'].to_list())]
 
 # join aggregated Run_Project_Poly_9002_run.tsv with the model calls
