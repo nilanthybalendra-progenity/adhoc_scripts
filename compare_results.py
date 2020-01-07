@@ -4,9 +4,10 @@ aggregate_results.py. Specifically it compares the following:
     * SMN1 and SMN2 calls
     * Readthrough and CNV calls
 
+A tsv named call_comparison.tsv is generated.
+
 The Classic_Variant_Metadata_v6.txt file is used to determine which variants to compare. This list contains all variants
 called by Levitate. Note that alphathal calls are not compared as they were not called using GCS.
-
 
 python compare_results.py /mnt/ruo_rw/rnd/staff/nilanthy.balendra/Tickets/BFX-802_BFXSD-432/gcs_smn_calls.txt
 /mnt/ruo_rw/rnd/staff/nilanthy.balendra/Tickets/BFX-802_BFXSD-432/H72T3DRXX_H73JWDRXX_smn_alpha.tsv
@@ -40,11 +41,13 @@ def compare_smn(gcs_smn, lev_smn):
 
     gcs_smn_1 = gcs_smn.loc[gcs_smn['Variant'] == 'SMN1'].set_index('SampleID')
     gcs_smn_1['GCS_SMN1_CALL'] = gcs_smn_1['SMN FINAL']
+    gcs_smn_1['GCS_SMN1_RAW'] = gcs_smn_1['smn_raw']
 
     gcs_smn_2 = gcs_smn.loc[gcs_smn['Variant'] == 'SMN2'].set_index('SampleID')
     gcs_smn_2['GCS_SMN2_CALL'] = gcs_smn_2['SMN FINAL']
+    gcs_smn_2['GCS_SMN2_RAW'] = gcs_smn_2['smn_raw']
 
-    all_gcs_smn = gcs_smn_1[['GCS_SMN1_CALL']].join(gcs_smn_2[['GCS_SMN2_CALL']], sort=False, how='left')
+    all_gcs_smn = gcs_smn_1[['GCS_SMN1_CALL', 'GCS_SMN1_RAW']].join(gcs_smn_2[['GCS_SMN2_CALL', 'GCS_SMN2_RAW']], sort=False, how='left')
 
     full = lev_smn.join(all_gcs_smn, sort='False', how='left', on='PROPS_ID')
 
@@ -101,6 +104,7 @@ def compare_variants(gcs_vars, lev_rt, lev_cnv):
     gcs_vars['Levitate_Ploidy'] = ploidy
     gcs_vars['COMPARISON'] = check
 
+    # check if Levitate RT/PP1 varints are
     ploidy = []
     check = []
     for i, row in lev_rt.iterrows():
