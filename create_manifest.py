@@ -27,18 +27,18 @@ late_prod_run  = pd.read_csv(analytical_data /'run_files_late_prod.tsv', sep='\t
 prod_run_data  = pd.concat([early_prod_run[columns_run_file], late_prod_run[columns_run_file]], axis=0)
 prod_run_data.drop_duplicates(subset='SAMPLE_ID', keep='first', inplace=True)
 
-p_run_data   = pd.read_csv(meta_data / 'progenity_run_data_v02.tsv.tsv', sep='\t', header=0)
-a_run_data   = pd.read_csv(meta_data / 'avero_run_data_v02.tsv.tsv', sep='\t', header=0)
+p_run_data   = pd.read_csv(meta_data / 'progenity_run_data_v03.tsv', sep='\t', header=0)
+a_run_data   = pd.read_csv(meta_data / 'avero_run_data_v03.tsv', sep='\t', header=0)
 run_metadata = pd.concat([p_run_data, a_run_data], axis=0)
 
-p_sample_data   = pd.read_csv(meta_data / 'progenity_sample_data_v02.tsv.tsv', sep='\t', header=0)
-a_sample_data   = pd.read_csv(meta_data / 'avero_sample_data_v02.tsv.tsv', sep='\t', header=0)
+p_sample_data   = pd.read_csv(meta_data / 'progenity_sample_data_v03.tsv', sep='\t', header=0)
+a_sample_data   = pd.read_csv(meta_data / 'avero_sample_data_v03.tsv', sep='\t', header=0)
 sample_metadata = pd.concat([p_sample_data, a_sample_data], axis=0)
 sample_metadata.drop(labels=['COMPANY'], axis=1, inplace=True) #this is already in run_metadata
 sample_metadata.drop_duplicates(subset='SAMPLEID', keep='first', inplace=True)
 
-p_reported = pd.read_csv(meta_data / 'progenity_reported_data_v02.tsv.tsv', sep='\t', header=0)
-a_reported = pd.read_csv(meta_data / 'avero_reported_data_v02.tsv.tsv', sep='\t', header=0)
+p_reported = pd.read_csv(meta_data / 'progenity_reported_data_v03.tsv', sep='\t', header=0)
+a_reported = pd.read_csv(meta_data / 'avero_reported_data_v03.tsv', sep='\t', header=0)
 reported   = pd.concat([p_reported, a_reported], axis=0)
 
 exclude_samples = pd.read_csv(other_data / 'exclude_samples.txt', sep='\t', header=0)
@@ -58,7 +58,7 @@ male_controls  = ['C00259', 'C00260', 'C00261', 'C00262', 'C00263']
 exclude_plates = ['PPU70017-1A', 'PPU70018-1B', 'PPU70020-1D']
 
 prod_run_data = prod_run_data.loc[~prod_run_data['PLATE'].isin(exclude_plates)]
-prod_run_data = prod_run_data.loc[(prod_run_data['PROPS_ID'].isin(male_controls)) | (prod_run_data['CONTROL_SAMPLE'] == 'Test')]
+#prod_run_data = prod_run_data.loc[(prod_run_data['PROPS_ID'].isin(male_controls)) | (prod_run_data['CONTROL_SAMPLE'] == 'Test')]
 prod_run_data = prod_run_data.loc[~prod_run_data['SAMPLE_ID'].isin(exclude_samples['exclude'].to_list())]
 
 # join aggregated Run_Project_Poly_9002_run.tsv with the model calls
@@ -149,7 +149,8 @@ for c in chr:
 tmp6['KNOWN_PLOIDY'].loc[tmp6['SAMPLE_ID'].isin(outlier_sid)] = ''
 
 # finally some clean up
-tmp6.drop(labels=['join_helper2', 'join_helper','SAMPLEID', 'SID', 'RESULT'], axis=1, inplace=True)
+tmp6.drop(labels=['join_helper2', 'join_helper','SAMPLEID', 'SampleId', 'SID', 'RESULT'], axis=1, inplace=True)
+tmp6.rename(columns={'OrderId': 'ORDER_ID', 'State': 'STATE', 'PostalCode': 'POSTAL_CODE'}, inplace=True)
 tmp6.loc[tmp6['EXTRACTIONINSTRUMENTNAME'] == 'L000461', 'EXTRACTIONINSTRUMENTNAME'] = 'L00461'
 tmp6['BMIATTIMEOFDRAW'].replace(0,np.nan, inplace=True)
 tmp6['BMIATTIMEOFDRAW'].replace(-1,np.nan, inplace=True)
