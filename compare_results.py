@@ -4,17 +4,27 @@ aggregate_results.py. Specifically it compares the following:
     * SMN1 and SMN2 calls
     * Readthrough and CNV calls
 
-A tsv named call_comparison.tsv is generated.
+An excel workbook named call_comparison.xlsx is generated.
 
 The Classic_Variant_Metadata_v6.txt file is used to determine which variants to compare. This list contains all variants
 called by Levitate. Note that alphathal calls are not compared as they were not called using GCS.
+
+Arguments:
+    - path: tsv/txt file containing GCS SMN calls
+    - path: tsv/txt file containing Levitate SMN calls
+    - path: tsv/txt file containing GCS variant calls
+    - path: tsv/txt file containing Levitate RT and PP1 variant calls
+    - path: tsv/txt file containing Levitate CNV calls
+    - path: location to save output file
+
+Example command:
 
 python compare_results.py /mnt/ruo_rw/rnd/staff/nilanthy.balendra/Tickets/BFX-802_BFXSD-432/gcs_smn_calls.txt
 /mnt/ruo_rw/rnd/staff/nilanthy.balendra/Tickets/BFX-802_BFXSD-432/H72T3DRXX_H73JWDRXX_smn_alpha.tsv
 /mnt/ruo_rw/rnd/staff/nilanthy.balendra/Tickets/BFX-802_BFXSD-432/gcs_all_calls.txt
 /mnt/ruo_rw/rnd/staff/nilanthy.balendra/Tickets/BFX-802_BFXSD-432/H72T3DRXX_H73JWDRXX_rt_pp1.tsv
 /mnt/ruo_rw/rnd/staff/nilanthy.balendra/Tickets/BFX-802_BFXSD-432/H72T3DRXX_H73JWDRXX_other_cnv_pp2.tsv
-/mnt/ruo_rw/rnd/staff/nilanthy.balendra/Tickets/BFX-802_BFXSD-432/
+/mnt/ruo_rw/rnd/staff/nilanthy.balendra/Tickets/BFX-802_BFXSD-432
 """
 
 import argparse
