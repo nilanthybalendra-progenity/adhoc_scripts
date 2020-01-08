@@ -222,30 +222,14 @@ def cli():
 
     fcs = args.fcid.split(',')
 
-    rt_pp1           = pd.DataFrame()
-    smn_alpha        = pd.DataFrame()
-    positive_CNV_PP2 = pd.DataFrame()
-    sample_output    = pd.DataFrame()
-    hs_output        = pd.DataFrame()
-
-    # for fc in fcs:
-    #     print(fc)
-
-    if sample_alignment_path:
-        print('Aggregating QC Metrics')
-        f_sample_output, f_hs_output = aggregate_qc(flowcell_result_path, sample_alignment_path, fcs)
-        sample_output = pd.concat([sample_output, f_sample_output])
-        hs_output = pd.concat([hs_output, f_hs_output])
+    print('Aggregating QC Metrics')
+    sample_output, hs_output = aggregate_qc(flowcell_result_path, sample_alignment_path, fcs)
 
     print('Aggregating RT and PP1')
-    f_rt_pp1, agg_cnv = aggregate_rt(sample_result_path, fcs)
+    rt_pp1, agg_cnv = aggregate_rt(sample_result_path, fcs)
 
     print('Aggregating SMA, Alphathal, & other positive CNVs')
-    f_smn_alpha, f_positive_CNV_PP2 = agg_cnv_results(agg_cnv)
-
-    rt_pp1 = pd.concat([rt_pp1, f_rt_pp1])
-    smn_alpha = pd.concat([smn_alpha, f_smn_alpha])
-    positive_CNV_PP2 = pd.concat([positive_CNV_PP2, f_positive_CNV_PP2])
+    smn_alpha, positive_CNV_PP2 = agg_cnv_results(agg_cnv)
 
     print('Outputting to excel')
     with pd.ExcelWriter(f'{output_path}/{prefix}_output.xlsx') as writer:
