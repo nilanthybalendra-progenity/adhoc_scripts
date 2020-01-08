@@ -157,8 +157,9 @@ def aggregate_qc(flowcell_result_path, aligns_path, fc_id):
     '''
 
     sample_dirs = get_file_list(aligns_path, fc_id)
-    f_dir = get_file_list(flowcell_result_path, fc_id)
+    f_dirs = get_file_list(flowcell_result_path, fc_id)
     hs = []
+    sample_metrics = pd.DataFrame()
 
     for d in sample_dirs:
         hs_metrics_path = aligns_path / d / 'metrics' / 'hs_metrics.tsv'
@@ -172,14 +173,15 @@ def aggregate_qc(flowcell_result_path, aligns_path, fc_id):
     header = ['SAMPLE_ID'] + headings
     hs_metrics = pd.DataFrame(data=hs, columns=header)
 
-    sample_metrics_path = flowcell_result_path / f_dir[0] / 'sample_metrics.tsv'
+    for d in f_dirs:
+        sample_metrics_path = flowcell_result_path / d / 'sample_metrics.tsv'
 
-    if os.path.isfile(sample_metrics_path):
-        sample_metrics = pd.read_csv(sample_metrics_path, sep='\t', header=0)
-        cols = list(sample_metrics)
-        cols = sorted(cols)
-        cols.insert(0, cols.pop(cols.index('LIS_REQUEST_BFXID')))
-        sample_metrics = sample_metrics.loc[:, cols]
+        if os.path.isfile(sample_metrics_path):
+            temp= pd.read_csv(sample_metrics_path, sep='\t', header=0)
+            cols = list(temp)
+            cols = sorted(cols)
+            cols.insert(0, cols.pop(cols.index('LIS_REQUEST_BFXID')))
+            sample_metrics = pd.concat([sample_metrics, temp.loc[:, cols]], axis=0, sort=False)
 
     return sample_metrics, hs_metrics
 
@@ -226,24 +228,24 @@ def cli():
     sample_output    = pd.DataFrame()
     hs_output        = pd.DataFrame()
 
-    for fc in fcs:
-        print(fc)
+    # for fc in fcs:
+    #     print(fc)
 
-        if sample_alignment_path:
-            print('Aggregating QC Metrics')
-            f_sample_output, f_hs_output = aggregate_qc(flowcell_result_path, sample_alignment_path, fc)
-            sample_output = pd.concat([sample_output, f_sample_output])
-            hs_output = pd.concat([hs_output, f_hs_output])
+    if sample_alignment_path:
+        print('Aggregating QC Metrics')
+        f_sample_output, f_hs_output = aggregate_qc(flowcell_result_path, sample_alignment_path, fcs)
+        sample_output = pd.concat([sample_output, f_sample_output])
+        hs_output = pd.concat([hs_output, f_hs_output])
 
-        print('Aggregating RT and PP1')
-        f_rt_pp1, agg_cnv = aggregate_rt(sample_result_path, fc)
+    print('Aggregating RT and PP1')
+    f_rt_pp1, agg_cnv = aggregate_rt(sample_result_path, fcs)
 
-        print('Aggregating SMA, Alphathal, & other positive CNVs')
-        f_smn_alpha, f_positive_CNV_PP2 = agg_cnv_results(agg_cnv)
+    print('Aggregating SMA, Alphathal, & other positive CNVs')
+    f_smn_alpha, f_positive_CNV_PP2 = agg_cnv_results(agg_cnv)
 
-        rt_pp1 = pd.concat([rt_pp1, f_rt_pp1])
-        smn_alpha = pd.concat([smn_alpha, f_smn_alpha])
-        positive_CNV_PP2 = pd.concat([positive_CNV_PP2, f_positive_CNV_PP2])
+    rt_pp1 = pd.concat([rt_pp1, f_rt_pp1])
+    smn_alpha = pd.concat([smn_alpha, f_smn_alpha])
+    positive_CNV_PP2 = pd.concat([positive_CNV_PP2, f_positive_CNV_PP2])
 
     print('Outputting to excel')
     with pd.ExcelWriter(f'{output_path}/{prefix}_output.xlsx') as writer:
