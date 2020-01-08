@@ -2,25 +2,35 @@
 
 Arguments:
     - string: flowcells to pull data from, one value or comma separated list
-    - path: sample_result directory
     - path: output directory
     - string: output file prefix
 
 Optional:
-    --aligns, default value is None, if a path is given to sample alignment directory, qc values are aggregated
+    --data, path to workflow results directory
+    --f_result, path to flowcell_result directory
+    --s_aligns, path to sample_alignment directory
+    --s_result, path to sample_result directory
+
+    Either provide --data or --f_result,--s_aligns, and --s_result. They are mutually exclusive options.
+
     -tsv, default value is False, if true, the following individual tsv files are outputted
+        - {prefix}_sample_metrics.tsv
         - {prefix}_hs.tsv
         - {prefix}_other_cnv_pp2.tsv
-        - {prefix}_qc.tsv (if -aligns is not None)
-        - {prefix}_smna_alpha.tsv
+        - {prefix}_smn_alpha.tsv
         - {prefix}_rt_pp1.tsv
-
-Example command:
-python aggregate_results.py H737HDRXX,HCYTJDRXX /mnt/bfx_analysis_ro/analysis_data/progenity_workflow_levitate/sample_result/
-/mnt/ruo_rw/rnd/staff/nilanthy.balendra/ BLAH --aligns /mnt/bfx_analysis_ro/analysis_data/progenity_workflow_levitate/sample_alignment/ -tsv
 
 The following file is always created and contains all contents in the above tsv files on separate sheets:
     - {prefix}_output.xlsx
+
+Example commands:
+python aggregate_results.py H737HDRXX,HCYTJDRXX  /mnt/ruo_rw/rnd/staff/nilanthy.balendra/ my_prefix
+--data /mnt/bfx_analysis_ro/analysis_data/progenity_workflow_levitate/
+
+python aggregate_results.py H737HDRXX,HCYTJDRXX /mnt/ruo_rw/rnd/staff/nilanthy.balendra/ my_prefix
+--f_result /mnt/bfx_analysis_ro/analysis_data/progenity_workflow_levitate/flowcell_result/
+--s_align /mnt/bfx_analysis_ro/analysis_data/progenity_workflow_levitate/sample_alignment/
+--s_result /mnt/bfx_analysis_ro/analysis_data/progenity_workflow_levitate/sample_result/ -tsv
 
 """
 
@@ -52,8 +62,10 @@ def reformat_calls(calls, header):
 
 
 def get_file_list(main_path, fc):
-    """sample alignment and sample result directories contain directories for each sample appended by "v##". The latest
-    output for that sample has the greatest ## value. This function puts together a list of the latest run directories"""
+    """flowcell result, sample alignment and sample result directories contain directories for each flowcell/sample
+    appended by "v##". The latest output has the greatest ## value. This function puts together a list of the latest run
+    directories
+    """
 
     files = pd.DataFrame()
     files['BFX_ID'] = [s for s in os.listdir(main_path) if s.split('_')[0] in fc]
@@ -137,67 +149,53 @@ def agg_cnv_results(calls):
     return smn_alpha_only, other_to_output
 
 
-def aggregate_qc(main_path, fc_id):
+def aggregate_qc(flowcell_result_path, aligns_path, fc_id):
     ''' Given a flowcell ID or list of them, aggregate the following files together required qc metrics
     - hs-metrics.txt
     - gaps_classic.txt: CDS, NEAR CDS, DEEP, FREEMIX gaps for PP1 and PP2
     - calls.tsv (from CNV): get GOF
     '''
 
-    dirs = get_file_list(main_path, fc_id)
-
-    qc = []
+    sample_dirs = get_file_list(aligns_path, fc_id)
+    f_dir = get_file_list(flowcell_result_path, fc_id)
     hs = []
 
-    for d in dirs:
-        hs_metrics = main_path / d / 'metrics' / 'hs_metrics.tsv'
-        gaps_rt = main_path / d / 'metrics' / 'gaps_rt_classic_summary.tsv'
-        gaps_pp = main_path / d / 'metrics' / 'gaps_pp_classic_summary.tsv'
-        crud = main_path/ d / 'crud' / 'contamination_metrics.tsv'
-        fit = main_path/ d / 'fit' / 'fit.tsv'
+    for d in sample_dirs:
+        hs_metrics_path = aligns_path / d / 'metrics' / 'hs_metrics.tsv'
 
-        if os.path.isfile(hs_metrics) and os.path.isfile(gaps_rt) and os.path.isfile(crud) and os.path.isfile(fit):
-
-            # hs_metrics
-            hs_lines = open(hs_metrics).readlines()
+        if os.path.isfile(hs_metrics_path):
+            hs_lines = open(hs_metrics_path).readlines()
             rest = hs_lines[7].split('\t')
             headings = hs_lines[6].split('\t')
-
-            fold_80 = rest[43]
-            pf_unique_reads = rest[25]
-
-            # classic gaps
-            gaps_rt = open(gaps_rt).readlines()
-            gaps_pp = open(gaps_pp).readlines()
-
-            # contamination
-            contamination = pd.read_csv(crud, sep='\t', header=0)
-            free_mix = contamination['FREEMIX'][0]
-
-            #gof
-            fit = pd.read_csv(fit, sep='\t', header=0)
-            gof = fit['GOF'][0]
-
-            # aggregate
-            qc.append([d[:-4], gof, pf_unique_reads, fold_80] + gaps_rt[1][:-1].split('\t')[1:-1] + gaps_pp[1][:-1].split('\t')[1:-1] + [free_mix])
             hs.append([d[:-4]] + rest)
 
-
-    qc_output = pd.DataFrame(data=qc, columns=['SAMPLE_ID', 'GOF', 'UNIQUE_ALIGNED_READS', 'FOLD80_BASE_PENALTY', 'RT_CDS_GAPS', 'RT_NEAR_CDS_GAPS', 'RT_DEEP_GAPS', 'PP1_CDS_GAPS', 'PP1_NEAR_CDS_GAPS', 'PP1_DEEP_GAPS', 'FREEMIX'])
     header = ['SAMPLE_ID'] + headings
     hs_metrics = pd.DataFrame(data=hs, columns=header)
 
-    return qc_output, hs_metrics
+    sample_metrics_path = flowcell_result_path / f_dir[0] / 'sample_metrics.tsv'
+
+    if os.path.isfile(sample_metrics_path):
+        sample_metrics = pd.read_csv(sample_metrics_path, sep='\t', header=0)
+        cols = list(sample_metrics)
+        cols = sorted(cols)
+        cols.insert(0, cols.pop(cols.index('LIS_REQUEST_BFXID')))
+        sample_metrics = sample_metrics.loc[:, cols]
+
+    return sample_metrics, hs_metrics
 
 def arg_parser():
     parser = argparse.ArgumentParser()
 
     parser.add_argument('fcid', type=str, help='flowcell ID')
-    parser.add_argument('sample_result_path', type=Path, help='path to sample result directory')
     parser.add_argument('output_path', type=Path, help='output path')
-    parser.add_argument('prefix', type=Path, help='output filename prefix')
+    parser.add_argument('prefix', type=str, help='output filename prefix')
+
+    parser.add_argument('--data', type=Path, help='path to Levitate analysis output directory')
+    parser.add_argument('--f_result', type=Path, help='path to flowcell result directory', default=None)
+    parser.add_argument('--s_align', type=Path, help='path to sample alignment directory', default=None)
+    parser.add_argument('--s_result', type=Path, help='path to sample result directory', default=None)
+
     parser.add_argument('-tsv', action="store_true", default=False)
-    parser.add_argument('--aligns', type=Path, help='path to sample alignment directory', default=None)
 
     return parser
 
@@ -208,14 +206,24 @@ def cli():
     prefix      = args.prefix
 
     tsv = args.tsv
-    sample_alignment_path = args.aligns
+
+    if args.data and all(p is None for p in [args.f_result, args.s_align, args.s_result]):
+        flowcell_result_path = args.data / 'flowcell_result'
+        sample_alignment_path = args.data / 'sample_alignment'
+        sample_result_path = args.data / 'sample_result'
+    elif all(p is not None for p in [args.f_result, args.s_align, args.s_result]) and (args.data is None):
+        flowcell_result_path = args.f_result
+        sample_alignment_path = args.s_align
+        sample_result_path = args.s_result
+    else:
+        raise ValueError('Either provide --f_result, --s_align, and --s_result args or provide --data only')
 
     fcs = args.fcid.split(',')
 
     rt_pp1           = pd.DataFrame()
     smn_alpha        = pd.DataFrame()
     positive_CNV_PP2 = pd.DataFrame()
-    qc_output        = pd.DataFrame()
+    sample_output    = pd.DataFrame()
     hs_output        = pd.DataFrame()
 
     for fc in fcs:
@@ -223,12 +231,12 @@ def cli():
 
         if sample_alignment_path:
             print('Aggregating QC Metrics')
-            f_qc_output, f_hs_output = aggregate_qc(Path(sample_alignment_path), fc)
-            qc_output = pd.concat([qc_output, f_qc_output])
+            f_sample_output, f_hs_output = aggregate_qc(flowcell_result_path, sample_alignment_path, fc)
+            sample_output = pd.concat([sample_output, f_sample_output])
             hs_output = pd.concat([hs_output, f_hs_output])
 
         print('Aggregating RT and PP1')
-        f_rt_pp1, agg_cnv = aggregate_rt(args.sample_result_path, fc)
+        f_rt_pp1, agg_cnv = aggregate_rt(sample_result_path, fc)
 
         print('Aggregating SMA, Alphathal, & other positive CNVs')
         f_smn_alpha, f_positive_CNV_PP2 = agg_cnv_results(agg_cnv)
@@ -240,9 +248,8 @@ def cli():
     print('Outputting to excel')
     with pd.ExcelWriter(f'{output_path}/{prefix}_output.xlsx') as writer:
 
-        if sample_alignment_path:
-            qc_output.to_excel(writer, sheet_name='Sample QC Summary', index=None)
-            hs_output.to_excel(writer, sheet_name='HS Metrics', index=None)
+        sample_output.to_excel(writer, sheet_name='Sample Metrics', index=None)
+        hs_output.to_excel(writer, sheet_name='HS Metrics', index=None)
 
         rt_pp1.to_excel(writer, sheet_name='RT & PP1 Variants', index=None)
         smn_alpha.to_excel(writer, sheet_name='SMN & Alpha', index=None)
@@ -252,9 +259,7 @@ def cli():
     if tsv:
         print('Outputting TSVs')
 
-        if sample_alignment_path:
-            qc_output.to_csv(args.output_path / f'{prefix}_qc.tsv', sep='\t', index=None)
-
+        sample_output.to_csv(args.output_path / f'{prefix}_sample_metrics.tsv', sep='\t', index=None)
         hs_output.to_csv(args.output_path / f'{prefix}_hs.tsv', sep='\t', index=None)
         rt_pp1.to_csv(args.output_path / f'{prefix}_rt_pp1.tsv', sep='\t', index=None)
         smn_alpha.to_csv(args.output_path / f'{prefix}_smn_alpha.tsv', sep='\t', index=None)
