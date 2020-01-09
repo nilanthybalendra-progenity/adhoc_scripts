@@ -44,7 +44,7 @@ fp = ['SAMPLE_ID','VSE2LNKMRW', 'VSHKUT54EL', 'VS2CJ12KCY', 'VS5FN9VIQG', 'VSLJY
       'VSZ46X4R7A', 'VSLU4IJRML', 'VS93LGTXXY', 'VSS8GIC16K', 'VSU99R3RB5', 'VSX1RSIIP6']
 
 def reformat_calls(calls, header):
-    """reformat the CNV output files according to variant region (SMN or ALPHA)
+    """Reformat the CNV output files according to variant region (SMN or ALPHA).
 
     Args:
         calls (dataframe): CNV calls aggregated together
@@ -71,7 +71,7 @@ def reformat_calls(calls, header):
 def get_file_list(main_path, fc):
     """flowcell result, sample alignment and sample result directories contain directories for each flowcell/sample
     appended by "v##". The latest output has the greatest ## value. This function puts together a list of the latest run
-    directories
+    directories.
 
     Args:
         main_path (Path): Path to directory to search
@@ -90,11 +90,17 @@ def get_file_list(main_path, fc):
     return files['BFX_ID'].tolist()
 
 def aggregate_qc(flowcell_result_path, aligns_path, fc_id):
-    ''' Given a flowcell ID or list of them, aggregate the following files together required qc metrics
-    - hs-metrics.txt
-    - gaps_classic.txt: CDS, NEAR CDS, DEEP, FREEMIX gaps for PP1 and PP2
-    - calls.tsv (from CNV): get GOF
-    '''
+    """Given filepaths and a list of flowcells, sample_metrics.tsv files for each flowcell and hs_metrics.tsv files for
+    each sample are aggregated and returned as two dataframes.
+
+    Args:
+        flowcell_result_path (Path): path to flowcell directory
+        aligns_path (Path): path to sample_alignment directory
+        fc_id (list): list of flowcell ids
+
+    Returns: dataframe, dataframe
+
+    """
 
     sample_dirs = get_file_list(aligns_path, fc_id)
     f_dirs = get_file_list(flowcell_result_path, fc_id)
@@ -127,7 +133,16 @@ def aggregate_qc(flowcell_result_path, aligns_path, fc_id):
 
 
 def aggregate_calls(main_path, fc_id):
-    """Given path to rt and cnv results directories, flowcell ids and version, aggregates calls"""
+    """Given path to rt and cnv results directories, flowcell ids and version, aggregates calls and returns two
+    dataframes.
+
+    Args:
+        main_path: Path to sample_result directory
+        fc_id: flowcell ids of interest
+
+    Returns: dataframe, dataframe
+
+    """
 
     meta_data = pd.read_csv('Classic_Variant_Metadata_v6.txt', sep='\t', header=0)
     meta_data.set_index('VSID', inplace=True)
@@ -177,7 +192,14 @@ def aggregate_calls(main_path, fc_id):
 
 
 def create_cnv_results(calls):
-    """Reformats aggregated CNV calls into desired format"""
+    """Reformats aggregated CNV calls into desired format. Returns two dataframes of SMN and CNV calls
+
+    Args:
+        calls (dataframe): aggregated CNV calls
+
+    Returns: dataframe, dataframe
+
+    """
 
     # pull all SMN and alpha calls
     smn1_calls = reformat_calls(calls[calls['REGION']=='SMN1'], ['SMN1 Call', 'SMN1 Ploidy', 'SMN1 Quality'])
