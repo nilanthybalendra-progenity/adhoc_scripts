@@ -19,7 +19,7 @@ Arguments:
 
 Example command:
 
-python compare_results.py /mnt/ruo_rw/rnd/staff/nilanthy.balendra/Tickets/BFX-802_BFXSD-432/gcs_smn_calls.txt
+python compare_lev_gcs_results.py /mnt/ruo_rw/rnd/staff/nilanthy.balendra/Tickets/BFX-802_BFXSD-432/gcs_smn_calls.txt
 /mnt/ruo_rw/rnd/staff/nilanthy.balendra/Tickets/BFX-802_BFXSD-432/H72T3DRXX_H73JWDRXX_smn_alpha.tsv
 /mnt/ruo_rw/rnd/staff/nilanthy.balendra/Tickets/BFX-802_BFXSD-432/gcs_all_calls.txt
 /mnt/ruo_rw/rnd/staff/nilanthy.balendra/Tickets/BFX-802_BFXSD-432/H72T3DRXX_H73JWDRXX_rt_pp1.tsv
