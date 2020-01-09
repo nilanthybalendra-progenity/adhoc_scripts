@@ -190,7 +190,7 @@ def cli():
     with pd.ExcelWriter(f'{output_path}/call_comparison.xlsx') as writer:
         comparison_gcs.to_excel(writer, sheet_name='GCS Call Comparison', index=None)
         comparison_lev.to_excel(writer, sheet_name='Levitate Readthrough Comparison', index=None)
-        comparison_lev_cnv.to_excel(writer, sheet_name='Levitate CNV/PP2 Comparison', index=None)
+        comparison_lev_cnv.to_excel(writer, sheet_name='Levitate CNV_PP2 Comparison', index=None)
         comparison_smn.to_excel(writer, sheet_name='SMN Comparison', index=None)
 
     # comparison_smn.to_csv(output_path / 'comparison_smn.tsv', sep='\t')
