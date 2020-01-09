@@ -101,20 +101,20 @@ def compare_variants(gcs_vars, lev_rt, lev_cnv):
             check.append('NOTFOUND in Levitate')
         elif lev_rt_call.empty: #then it is a CNV
             ploidy.append(lev_rt_call['CALL'].item())
-            if str(row[6]) == lev_rt_call['CALL'].item():
+            if str(row[6]) == str(lev_rt_call['CALL'].item()):
                 check.append('FOUND')
             else:
                 check.append('FOUND, ploidy mismatch')
         else: #it is an rt
             ploidy.append(lev_rt_call['ALLELE_PLOIDY'].item())
-            if str(row[6]) == lev_rt_call['ALLELE_PLOIDY'].item():
+            if str(row[6]) == str(lev_rt_call['ALLELE_PLOIDY'].item()):
                 check.append('FOUND')
             else:
                 check.append('FOUND, ploidy mismatch')
     gcs_vars['Levitate_Ploidy'] = ploidy
     gcs_vars['COMPARISON'] = check
 
-    # check if Levitate RT/PP1 varints are
+    # check if Levitate RT/PP1 variants are
     ploidy = []
     check = []
     for i, row in lev_rt.iterrows():
@@ -125,7 +125,7 @@ def compare_variants(gcs_vars, lev_rt, lev_cnv):
             check.append('NOTFOUND in GCS')
         else:
             ploidy.append(gcs_call['AlleleCount'].item())
-            if row[9] == str(gcs_call['AlleleCount'].item()):
+            if str(row[9]) == str(gcs_call['AlleleCount'].item()):
                 check.append('FOUND')
             else:
                 check.append('FOUND, ploidy mismatch')
@@ -163,7 +163,7 @@ def arg_parser():
 
     parser.add_argument('gcs_var_calls', type=Path, help='path to gcs variant calls')
     parser.add_argument('lev_rt_calls', type=Path, help='path to lev readthrough calls')
-    parser.add_argument('lev_cnv_calls', type=Path, help='path to lev CNV calls')
+    parser.add_argument('lev_cnv_calls', type=Path, help='path to lev CNV/PP2 calls')
 
     parser.add_argument('output_path', type=Path, help='output path')
 
@@ -190,7 +190,7 @@ def cli():
     with pd.ExcelWriter(f'{output_path}/call_comparison.xlsx') as writer:
         comparison_gcs.to_excel(writer, sheet_name='GCS Call Comparison', index=None)
         comparison_lev.to_excel(writer, sheet_name='Levitate Readthrough Comparison', index=None)
-        comparison_lev_cnv.to_excel(writer, sheet_name='Levitate CNV Comparison', index=None)
+        comparison_lev_cnv.to_excel(writer, sheet_name='Levitate CNV_PP2 Comparison', index=None)
         comparison_smn.to_excel(writer, sheet_name='SMN Comparison', index=None)
 
     # comparison_smn.to_csv(output_path / 'comparison_smn.tsv', sep='\t')
