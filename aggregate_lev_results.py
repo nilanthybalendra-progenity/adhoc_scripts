@@ -24,7 +24,7 @@ The following file is always created and contains all contents in the above tsv 
     - {prefix}_output.xlsx
 
 Example commands:
-python aggregate_results.py H737HDRXX,HCYTJDRXX  /mnt/ruo_rw/rnd/staff/nilanthy.balendra/ my_prefix
+python aggregate_lev_results.py H737HDRXX,HCYTJDRXX  /mnt/ruo_rw/rnd/staff/nilanthy.balendra/ my_prefix
 --data /mnt/bfx_analysis_ro/analysis_data/progenity_workflow_levitate/ -tsv
 
 python aggregate_results.py H737HDRXX,HCYTJDRXX /mnt/ruo_rw/rnd/staff/nilanthy.balendra/ my_prefix
