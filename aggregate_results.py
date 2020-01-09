@@ -25,7 +25,7 @@ The following file is always created and contains all contents in the above tsv 
 
 Example commands:
 python aggregate_results.py H737HDRXX,HCYTJDRXX  /mnt/ruo_rw/rnd/staff/nilanthy.balendra/ my_prefix
---data /mnt/bfx_analysis_ro/analysis_data/progenity_workflow_levitate/
+--data /mnt/bfx_analysis_ro/analysis_data/progenity_workflow_levitate/ -tsv
 
 python aggregate_results.py H737HDRXX,HCYTJDRXX /mnt/ruo_rw/rnd/staff/nilanthy.balendra/ my_prefix
 --f_result /mnt/bfx_analysis_ro/analysis_data/progenity_workflow_levitate/flowcell_result/
@@ -44,8 +44,15 @@ fp = ['SAMPLE_ID','VSE2LNKMRW', 'VSHKUT54EL', 'VS2CJ12KCY', 'VS5FN9VIQG', 'VSLJY
       'VSZ46X4R7A', 'VSLU4IJRML', 'VS93LGTXXY', 'VSS8GIC16K', 'VSU99R3RB5', 'VSX1RSIIP6']
 
 def reformat_calls(calls, header):
-    """reformat the CNV output files according to variant region (SMN or ALPHA)"""
+    """reformat the CNV output files according to variant region (SMN or ALPHA)
 
+    Args:
+        calls (dataframe): CNV calls aggregated together
+        header: header to be added to reformated dataframe
+
+    Returns: dataframe
+
+    """
     new_format = pd.DataFrame()
     new_format['SAMPLE_ID'] = calls['SAMPLE_ID']
     new_format[header[0]] = calls['CALL']
@@ -65,8 +72,14 @@ def get_file_list(main_path, fc):
     """flowcell result, sample alignment and sample result directories contain directories for each flowcell/sample
     appended by "v##". The latest output has the greatest ## value. This function puts together a list of the latest run
     directories
-    """
 
+    Args:
+        main_path (Path): Path to directory to search
+        fc (string): Flowcell ID
+
+    Returns: List
+
+    """
     files = pd.DataFrame()
     files['BFX_ID'] = [s for s in os.listdir(main_path) if s.split('_')[0] in fc]
     files['SAMPLE_ID'] = files['BFX_ID'].str[:-4] # remove version tag
@@ -76,8 +89,44 @@ def get_file_list(main_path, fc):
 
     return files['BFX_ID'].tolist()
 
+def aggregate_qc(flowcell_result_path, aligns_path, fc_id):
+    ''' Given a flowcell ID or list of them, aggregate the following files together required qc metrics
+    - hs-metrics.txt
+    - gaps_classic.txt: CDS, NEAR CDS, DEEP, FREEMIX gaps for PP1 and PP2
+    - calls.tsv (from CNV): get GOF
+    '''
 
-def aggregate_rt(main_path, fc_id):
+    sample_dirs = get_file_list(aligns_path, fc_id)
+    f_dirs = get_file_list(flowcell_result_path, fc_id)
+    hs = []
+    sample_metrics = pd.DataFrame()
+
+    for d in sample_dirs:
+        hs_metrics_path = aligns_path / d / 'metrics' / 'hs_metrics.tsv'
+
+        if os.path.isfile(hs_metrics_path):
+            hs_lines = open(hs_metrics_path).readlines()
+            rest = hs_lines[7].split('\t')
+            headings = hs_lines[6].split('\t')
+            hs.append([d[:-4]] + rest)
+
+    header = ['SAMPLE_ID'] + headings
+    hs_metrics = pd.DataFrame(data=hs, columns=header)
+
+    for d in f_dirs:
+        sample_metrics_path = flowcell_result_path / d / 'sample_metrics.tsv'
+
+        if os.path.isfile(sample_metrics_path):
+            temp= pd.read_csv(sample_metrics_path, sep='\t', header=0)
+            cols = list(temp)
+            cols = sorted(cols)
+            cols.insert(0, cols.pop(cols.index('LIS_REQUEST_BFXID')))
+            sample_metrics = pd.concat([sample_metrics, temp.loc[:, cols]], axis=0, sort=False)
+
+    return sample_metrics, hs_metrics
+
+
+def aggregate_calls(main_path, fc_id):
     """Given path to rt and cnv results directories, flowcell ids and version, aggregates calls"""
 
     meta_data = pd.read_csv('Classic_Variant_Metadata_v6.txt', sep='\t', header=0)
@@ -127,7 +176,7 @@ def aggregate_rt(main_path, fc_id):
     return all_vgraph, agg_cnv
 
 
-def agg_cnv_results(calls):
+def create_cnv_results(calls):
     """Reformats aggregated CNV calls into desired format"""
 
     # pull all SMN and alpha calls
@@ -147,43 +196,6 @@ def agg_cnv_results(calls):
     other_to_output = pd.concat([only_positives])
 
     return smn_alpha_only, other_to_output
-
-
-def aggregate_qc(flowcell_result_path, aligns_path, fc_id):
-    ''' Given a flowcell ID or list of them, aggregate the following files together required qc metrics
-    - hs-metrics.txt
-    - gaps_classic.txt: CDS, NEAR CDS, DEEP, FREEMIX gaps for PP1 and PP2
-    - calls.tsv (from CNV): get GOF
-    '''
-
-    sample_dirs = get_file_list(aligns_path, fc_id)
-    f_dirs = get_file_list(flowcell_result_path, fc_id)
-    hs = []
-    sample_metrics = pd.DataFrame()
-
-    for d in sample_dirs:
-        hs_metrics_path = aligns_path / d / 'metrics' / 'hs_metrics.tsv'
-
-        if os.path.isfile(hs_metrics_path):
-            hs_lines = open(hs_metrics_path).readlines()
-            rest = hs_lines[7].split('\t')
-            headings = hs_lines[6].split('\t')
-            hs.append([d[:-4]] + rest)
-
-    header = ['SAMPLE_ID'] + headings
-    hs_metrics = pd.DataFrame(data=hs, columns=header)
-
-    for d in f_dirs:
-        sample_metrics_path = flowcell_result_path / d / 'sample_metrics.tsv'
-
-        if os.path.isfile(sample_metrics_path):
-            temp= pd.read_csv(sample_metrics_path, sep='\t', header=0)
-            cols = list(temp)
-            cols = sorted(cols)
-            cols.insert(0, cols.pop(cols.index('LIS_REQUEST_BFXID')))
-            sample_metrics = pd.concat([sample_metrics, temp.loc[:, cols]], axis=0, sort=False)
-
-    return sample_metrics, hs_metrics
 
 def arg_parser():
     parser = argparse.ArgumentParser()
@@ -226,10 +238,10 @@ def cli():
     sample_output, hs_output = aggregate_qc(flowcell_result_path, sample_alignment_path, fcs)
 
     print('Aggregating RT and PP1')
-    rt_pp1, agg_cnv = aggregate_rt(sample_result_path, fcs)
+    rt_pp1, agg_cnv = aggregate_calls(sample_result_path, fcs)
 
     print('Aggregating SMA, Alphathal, & other positive CNVs')
-    smn_alpha, positive_CNV_PP2 = agg_cnv_results(agg_cnv)
+    smn_alpha, positive_CNV_PP2 = create_cnv_results(agg_cnv)
 
     print('Outputting to excel')
     with pd.ExcelWriter(f'{output_path}/{prefix}_output.xlsx') as writer:

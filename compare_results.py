@@ -101,7 +101,7 @@ def compare_variants(gcs_vars, lev_rt, lev_cnv):
             check.append('NOTFOUND in Levitate')
         elif lev_rt_call.empty: #then it is a CNV
             ploidy.append(lev_rt_call['CALL'].item())
-            if str(row[6]) == lev_rt_call['CALL'].item():
+            if str(row[6]) == str(lev_rt_call['CALL'].item()):
                 check.append('FOUND')
             else:
                 check.append('FOUND, ploidy mismatch')
