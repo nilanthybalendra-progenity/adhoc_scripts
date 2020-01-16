@@ -43,6 +43,29 @@ from pathlib import Path
 fp = ['SAMPLE_ID','VSE2LNKMRW', 'VSHKUT54EL', 'VS2CJ12KCY', 'VS5FN9VIQG', 'VSLJYQ6EVS', 'VSFMENYNMW', 'VSLV8ZHH33',
       'VSZ46X4R7A', 'VSLU4IJRML', 'VS93LGTXXY', 'VSS8GIC16K', 'VSU99R3RB5', 'VSX1RSIIP6']
 
+
+def get_file_list(main_path, fc):
+    """flowcell result, sample alignment and sample result directories contain directories for each flowcell/sample
+    appended by "v##". The latest output has the greatest ## value. This function puts together a list of the latest run
+    directories.
+
+    Args:
+        main_path (Path): Path to directory to search
+        fc (string): Flowcell ID
+
+    Returns: List
+
+    """
+    files = pd.DataFrame()
+    files['BFX_ID'] = [s for s in os.listdir(main_path) if s.split('_')[0] in fc]
+    files['SAMPLE_ID'] = files['BFX_ID'].str[:-4] # remove version tag
+
+    files.sort_values(by='BFX_ID', inplace=True)
+    files.drop_duplicates(subset='SAMPLE_ID', keep='last', inplace=True)
+
+    return files['BFX_ID'].tolist()
+
+
 def reformat_calls(calls, header):
     """Reformat the CNV output files according to variant region (SMN or ALPHA).
 
@@ -68,27 +91,6 @@ def reformat_calls(calls, header):
     return new_format
 
 
-def get_file_list(main_path, fc):
-    """flowcell result, sample alignment and sample result directories contain directories for each flowcell/sample
-    appended by "v##". The latest output has the greatest ## value. This function puts together a list of the latest run
-    directories.
-
-    Args:
-        main_path (Path): Path to directory to search
-        fc (string): Flowcell ID
-
-    Returns: List
-
-    """
-    files = pd.DataFrame()
-    files['BFX_ID'] = [s for s in os.listdir(main_path) if s.split('_')[0] in fc]
-    files['SAMPLE_ID'] = files['BFX_ID'].str[:-4] # remove version tag
-
-    files.sort_values(by='BFX_ID', inplace=True)
-    files.drop_duplicates(subset='SAMPLE_ID', keep='last', inplace=True)
-
-    return files['BFX_ID'].tolist()
-
 def aggregate_qc(flowcell_result_path, aligns_path, fc_id):
     """Given filepaths and a list of flowcells, sample_metrics.tsv files for each flowcell and hs_metrics.tsv files for
     each sample are aggregated and returned as two dataframes.
@@ -101,7 +103,6 @@ def aggregate_qc(flowcell_result_path, aligns_path, fc_id):
     Returns: dataframe, dataframe
 
     """
-
     sample_dirs = get_file_list(aligns_path, fc_id)
     f_dirs = get_file_list(flowcell_result_path, fc_id)
     hs = []
@@ -126,7 +127,7 @@ def aggregate_qc(flowcell_result_path, aligns_path, fc_id):
             temp= pd.read_csv(sample_metrics_path, sep='\t', header=0)
             cols = list(temp)
             cols = sorted(cols)
-            cols.insert(0, cols.pop(cols.index('LIS_REQUEST_BFXID')))
+            cols.insert(0, cols.pop(cols.index('LIS_REQUEST_BFXID'))) #move LIS_REQUEST_BFXID to first column position
             sample_metrics = pd.concat([sample_metrics, temp.loc[:, cols]], axis=0, sort=False)
 
     return sample_metrics, hs_metrics
@@ -143,7 +144,6 @@ def aggregate_calls(main_path, fc_id):
     Returns: dataframe, dataframe
 
     """
-
     meta_data = pd.read_csv('Classic_Variant_Metadata_v6.txt', sep='\t', header=0)
     meta_data.set_index('VSID', inplace=True)
 
@@ -160,13 +160,13 @@ def aggregate_calls(main_path, fc_id):
         if os.path.isfile(rt) and os.path.isfile(pp1)and os.path.isfile(cnv):
 
             rt_output = pd.read_csv(rt, sep='\t', header=0)
-            no_fp = rt_output[~rt_output['ALLELE_ID'].isin(fp)]
-            all_rt = no_fp[no_fp['STATUS'].isin(['FOUND','NOCALL'])]
+            no_fp = rt_output[~rt_output['ALLELE_ID'].isin(fp)] #drop fingerprint variants
+            all_rt = no_fp[no_fp['STATUS'].isin(['FOUND','NOCALL'])] # drop NOTFOUND calls
             all_rt.insert(3, 'TYPE', 'READTHROUGH')
 
             pp1_output = pd.read_csv(pp1, sep='\t', header=0)
-            found_pp1  = pp1_output[pp1_output['STATUS'].isin(['FOUND','NOCALL'])]
-            all_pp1 = found_pp1[~found_pp1['ALLELE_ID'].str.contains('CYP21A2')]
+            found_pp1  = pp1_output[pp1_output['STATUS'].isin(['FOUND','NOCALL'])] # drop NOTFOUND calls
+            all_pp1 = found_pp1[~found_pp1['ALLELE_ID'].str.contains('CYP21A2')] # drop exon variants
             all_pp1.insert(3,'TYPE', 'PP1')
 
             cnv_calls = pd.read_csv(cnv, sep='\t', header=0)
@@ -177,7 +177,7 @@ def aggregate_calls(main_path, fc_id):
     gene = []
     market_name = []
     disease = []
-
+    # add variant metadata
     for ind, row in all_vgraph.iterrows():
         vsid = row[1]
         gene.append(meta_data.loc[vsid, 'GENE'])
@@ -200,7 +200,6 @@ def create_cnv_results(calls):
     Returns: dataframe, dataframe
 
     """
-
     # pull all SMN and alpha calls
     smn1_calls = reformat_calls(calls[calls['REGION']=='SMN1'], ['SMN1 Call', 'SMN1 Ploidy', 'SMN1 Quality'])
     smn2_calls = reformat_calls(calls[calls['REGION']=='SMN2'], ['SMN2 Call', 'SMN2 Ploidy', 'SMN2 Quality'])

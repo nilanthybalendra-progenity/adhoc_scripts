@@ -93,21 +93,21 @@ def compare_variants(gcs_vars, lev_rt, lev_cnv):
     ploidy = []
     for i, row in gcs_vars.iterrows():
         # try to find matching levitate call
-        lev_rt_call = lev_rt.loc[(lev_rt['PROPS_ID'].astype(str) == str(row[1])) & (lev_rt['ALLELE_ID'] == row[2])]
-        lev_cnv_call = lev_cnv.loc[(lev_rt['PROPS_ID'].astype(str) == str(row[1])) & (lev_cnv['VARIANT_ID'] == row[2])]
+        lev_rt_call = lev_rt.loc[(lev_rt['PROPS_ID'].astype(str) == str(row['SampleID'])) & (lev_rt['ALLELE_ID'] == row['VariantID'])]
+        lev_cnv_call = lev_cnv.loc[(lev_rt['PROPS_ID'].astype(str) == str(row['SampleID'])) & (lev_cnv['VARIANT_ID'] == row['VariantID'])]
 
         if lev_rt_call.empty & lev_cnv_call.empty:
             ploidy.append(np.nan)
             check.append('NOTFOUND in Levitate')
         elif lev_rt_call.empty: #then it is a CNV
-            ploidy.append(lev_rt_call['CALL'].item())
-            if str(row[6]) == str(lev_rt_call['CALL'].item()):
+            ploidy.append(lev_cnv_call['CALL'].item())
+            if str(row['AlleleCount']) == str(lev_cnv_call['CALL'].item()):
                 check.append('FOUND')
             else:
                 check.append('FOUND, ploidy mismatch')
         else: #it is an rt
             ploidy.append(lev_rt_call['ALLELE_PLOIDY'].item())
-            if str(row[6]) == str(lev_rt_call['ALLELE_PLOIDY'].item()):
+            if str(row['AlleleCount']) == str(lev_rt_call['ALLELE_PLOIDY'].item()):
                 check.append('FOUND')
             else:
                 check.append('FOUND, ploidy mismatch')
@@ -118,7 +118,7 @@ def compare_variants(gcs_vars, lev_rt, lev_cnv):
     ploidy = []
     check = []
     for i, row in lev_rt.iterrows():
-        gcs_call = gcs_vars.loc[(gcs_vars['SampleID'].astype(str) == row[-1]) & (gcs_vars['VariantID'] == row[1])]
+        gcs_call = gcs_vars.loc[(gcs_vars['SampleID'].astype(str) == row['PROPS_ID']) & (gcs_vars['VariantID'] == row['ALLELE_ID'])]
 
         if gcs_call.empty:
             ploidy.append(np.nan)
@@ -136,21 +136,20 @@ def compare_variants(gcs_vars, lev_rt, lev_cnv):
     ploidy = []
     check = []
     for i, row in lev_cnv.iterrows():
-        gcs_call = gcs_vars.loc[(gcs_vars['SampleID'].astype(str) == row[-1]) & (gcs_vars['VariantID'] == row[1])]
+        gcs_call = gcs_vars.loc[(gcs_vars['SampleID'].astype(str) == row['PROPS_ID']) & (gcs_vars['VariantID'] == row['VARIANT_ID'])]
 
         if gcs_call.empty:
             ploidy.append(np.nan)
             check.append('NOTFOUND in GCS')
         else:
             ploidy.append(gcs_call['AlleleCount'].item())
-            if row[5] == str(gcs_call['AlleleCount'].item()):
+            if row['CALL'] == str(gcs_call['AlleleCount'].item()):
                 check.append('FOUND')
             else:
                 check.append('FOUND, ploidy mismatch')
 
     lev_cnv['GCS_Ploidy'] = ploidy
     lev_cnv['COMPARISON'] = check
-
 
     return gcs_vars, lev_rt, lev_cnv
 
