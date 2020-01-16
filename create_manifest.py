@@ -18,8 +18,7 @@ columns_mod_file  = ['SAMPLE_ID', 'SNP_FETAL_PCT', 'GOF', 'READ_COUNT', 'CHR13_C
                     'CHRXY_CALL', 'CHR13_TVALUE', 'CHR18_TVALUE', 'CHR21_TVALUE', 'CHRX_TVALUE','CHRY_TVALUE',
                     'CHRY_FETAL_PCT']
 
-model31_calls     = raw_model31_calls[columns_mod_file]
-model31_calls.drop_duplicates(subset='SAMPLE_ID', keep='first', inplace=True)
+model31_calls     = raw_model31_calls[columns_mod_file].drop_duplicates(subset='SAMPLE_ID', keep='first')
 
 columns_run_file = ['SAMPLE_ID', 'PROPS_ID', 'FLOWCELL', 'PLATE', 'WELL', 'CONTROL_SAMPLE', 'ANALYSIS_DATETIME', 'DUPLICATION_RATE']
 early_prod_run = pd.read_csv(analytical_data / 'run_files_early_prod.tsv', sep='\t', header=0)
@@ -87,8 +86,8 @@ euploid  = [sid for sid in unique_sample_ids['ID'] if sid not in aneuploid['ID']
 chr = ['13', '18', '21']
 
 for c in chr:
-    aneuploid.loc[(aneuploid['OUTCOMENAME'] == f'Chromosome {c}') & (aneuploid['FETALPLOIDY'] == 'Trisomy'), 'RESULT'] = f'TRISOMY {c}'
-    aneuploid.loc[(aneuploid['OUTCOMENAME'] == f'Chromosome {c}') & (aneuploid['FETALPLOIDY'] == 'Monosomy'), 'RESULT'] = f'MONOSOMY {c}'
+    aneuploid.loc[((aneuploid['OUTCOMENAME'] == f'Chromosome {c}') & (aneuploid['FETALPLOIDY'] == 'Trisomy')), 'RESULT'] = f'TRISOMY {c}'
+    aneuploid.loc[((aneuploid['OUTCOMENAME'] == f'Chromosome {c}') & (aneuploid['FETALPLOIDY'] == 'Monosomy')), 'RESULT'] = f'MONOSOMY {c}'
 
 # create calls dataframe
 aneuploid_calls = aneuploid.groupby('ID')['RESULT'].apply(', '.join) #join calls if sample has more than one call
@@ -110,7 +109,7 @@ tmp4 = tmp3.join(xy.set_index('ID'), sort=False, how='left', on='join_helper2')
 
 #HOST SEX
 tmp4['HOST_SEX'] = 'FEMALE'
-tmp4.loc[tmp4['PROPS_ID'].isin(male_controls), 'HOST_SEX'] = 'MALE'
+tmp4.loc[tmp4['CONTROL_SAMPLE'] == 'Control', 'HOST_SEX'] = 'MALE' #lab only runs male controls
 
 #RUN NUMBER
 tmp4['RERUN'] = tmp4.duplicated(subset='PROPS_ID', keep=False)
@@ -134,6 +133,7 @@ tmp6 = tmp5.merge(outcome_data, how='left', left_on='PROPS_ID', right_on='SID')
 sercare = ['1902150150', '1902150160', '1902150162']
 tmp6['KNOWN_PLOIDY'] = tmp6.apply(lambda row: row['OUTCOME_PLOIDY'] if not pd.isna(row['OUTCOME_PLOIDY']) else row['REPORTED_PLOIDY'], axis=1)
 tmp6.loc[tmp6['PROPS_ID'].isin(sercare), 'KNOWN_PLOIDY'] = 'TRISOMY 13, TRISOMY 18, TRISOMY 21'
+tmp6.loc[tmp6['CONTROL_SAMPLE'] == 'Control', 'KNOWN_PLOIDY'] = 'FETAL EUPLOIDY'
 tmp6.loc[pd.isna(tmp6['FN']), 'FN'] = False
 
 #replace KNOWN_PLOIDY with blank for dubious values/calls
@@ -142,7 +142,7 @@ outlier_sid = []
 
 for c in chr:
     specific = positives.loc[positives['KNOWN_PLOIDY'].str.contains(f'TRISOMY {c}|MONOSOMY {c}')]
-    specific['ABS'] = abs(specific[f'CHR{c}_TVALUE'])
+    specific.loc[:, 'ABS'] = abs(specific[f'CHR{c}_TVALUE'])
     outlier = specific.loc[(specific[f'CHR{c}_TVALUE'] < 8) & (specific['SNP_FETAL_PCT'] > 8)]
     outlier_sid += outlier['SAMPLE_ID'].tolist()
 
