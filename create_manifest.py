@@ -21,8 +21,8 @@ columns_mod_file  = ['SAMPLE_ID', 'SNP_FETAL_PCT', 'GOF', 'READ_COUNT', 'CHR13_C
 model31_calls     = raw_model31_calls[columns_mod_file].drop_duplicates(subset='SAMPLE_ID', keep='first')
 
 columns_run_file = ['SAMPLE_ID', 'PROPS_ID', 'FLOWCELL', 'PLATE', 'WELL', 'CONTROL_SAMPLE', 'ANALYSIS_DATETIME', 'DUPLICATION_RATE']
-early_prod_run = pd.read_csv(analytical_data / 'run_files_early_prod.tsv', sep='\t', header=0)
-late_prod_run  = pd.read_csv(analytical_data /'run_files_late_prod.tsv', sep='\t', header=0)
+early_prod_run = pd.read_csv(analytical_data / 'poly_sample_early_prod.tsv', sep='\t', header=0)
+late_prod_run  = pd.read_csv(analytical_data /'poly_sample_late_prod.tsv', sep='\t', header=0)
 prod_run_data  = pd.concat([early_prod_run[columns_run_file], late_prod_run[columns_run_file]], axis=0)
 prod_run_data.drop_duplicates(subset='SAMPLE_ID', keep='first', inplace=True)
 
