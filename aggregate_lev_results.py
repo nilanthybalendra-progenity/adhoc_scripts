@@ -46,8 +46,8 @@ fp = ['SAMPLE_ID','VSE2LNKMRW', 'VSHKUT54EL', 'VS2CJ12KCY', 'VS5FN9VIQG', 'VSLJY
 
 def get_file_list(main_path, fc):
     """flowcell result, sample alignment and sample result directories contain directories for each flowcell/sample
-    appended by "v##". The latest output has the greatest ## value. This function puts together a list of the latest run
-    directories.
+    appended by "v##". The latest output does not necessarily have the greatest ## value. This function puts together a
+    list of the latest run directories based on creation time stamp.
 
     Args:
         main_path (Path): Path to directory to search
@@ -60,7 +60,9 @@ def get_file_list(main_path, fc):
     files['BFX_ID'] = [s for s in os.listdir(main_path) if s.split('_')[0] in fc]
     files['SAMPLE_ID'] = files['BFX_ID'].str[:-4] # remove version tag
 
-    files.sort_values(by='BFX_ID', inplace=True)
+    files['TIME'] = [os.stat(main_path / s).st_ctime for s in files['BFX_ID'].tolist()]
+
+    files.sort_values(by='TIME', inplace=True)
     files.drop_duplicates(subset='SAMPLE_ID', keep='last', inplace=True)
 
     return files['BFX_ID'].tolist()
