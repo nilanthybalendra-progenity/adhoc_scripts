@@ -12,32 +12,45 @@ meta_data =       main_data_dir / 'from_BI'
 analytical_data = main_data_dir / 'analytical_data'
 other_data =      main_data_dir / 'other_data'
 
-# read in files
+# read in analytical output files
+columns_run_file = ['SAMPLE_ID', 'PROPS_ID', 'FLOWCELL', 'PLATE', 'WELL', 'CONTROL_SAMPLE', 'ANALYSIS_DATETIME',
+                    'DUPLICATION_RATE', 'READS_0MM', 'READS_1MM', 'READS_2MM', 'EFFICIENCY_0MM', 'EFFICIENCY_1MM',
+                    'EFFICIENCY_2MM', 'READS_TOTAL_ALIGNED_PCT']
+early_prod_run = pd.read_csv(analytical_data / 'poly_sample_early_prod.tsv', sep='\t', header=0)
+late_prod_run  = pd.read_csv(analytical_data /'poly_sample_late_prod.tsv', sep='\t', header=0)
+recent_prod_run = pd.read_csv(analytical_data / 'poly_sample_02042020.tsv', sep='\t', header=0)
+
+# change columns for the latest data
+recent_prod_run['PROPS_ID'] = recent_prod_run['SAMPLE_ID']
+recent_prod_run.drop(labels=['SAMPLE_ID'], axis=1, inplace=True)
+recent_prod_run['SAMPLE_ID'] = recent_prod_run['BFX_RESULT_ID']
+
+# concat together
+prod_run_data  = pd.concat([early_prod_run[columns_run_file], late_prod_run[columns_run_file], recent_prod_run[columns_run_file]], axis=0)
+prod_run_data.drop_duplicates(subset='SAMPLE_ID', keep='first', inplace=True)
+
+# read in model output files
 raw_model31_calls = pd.read_csv(analytical_data / 'calls_model3.1.tsv', sep='\t', header=0)
 columns_mod_file  = ['SAMPLE_ID', 'SNP_FETAL_PCT', 'GOF', 'READ_COUNT', 'CHR13_CALL', 'CHR18_CALL', 'CHR21_CALL',
                     'CHRXY_CALL', 'CHR13_TVALUE', 'CHR18_TVALUE', 'CHR21_TVALUE', 'CHRX_TVALUE','CHRY_TVALUE',
                     'CHRY_FETAL_PCT']
 
-model31_calls     = raw_model31_calls[columns_mod_file].drop_duplicates(subset='SAMPLE_ID', keep='first')
+model31_calls = pd.concat([raw_model31_calls[columns_mod_file], recent_prod_run[columns_mod_file]], axis=0).drop_duplicates(subset='SAMPLE_ID', keep='first')
 
-columns_run_file = ['SAMPLE_ID', 'PROPS_ID', 'FLOWCELL', 'PLATE', 'WELL', 'CONTROL_SAMPLE', 'ANALYSIS_DATETIME', 'DUPLICATION_RATE']
-early_prod_run = pd.read_csv(analytical_data / 'poly_sample_early_prod.tsv', sep='\t', header=0)
-late_prod_run  = pd.read_csv(analytical_data /'poly_sample_late_prod.tsv', sep='\t', header=0)
-prod_run_data  = pd.concat([early_prod_run[columns_run_file], late_prod_run[columns_run_file]], axis=0)
-prod_run_data.drop_duplicates(subset='SAMPLE_ID', keep='first', inplace=True)
-
-p_run_data   = pd.read_csv(meta_data / 'progenity_run_data_v03.tsv', sep='\t', header=0)
-a_run_data   = pd.read_csv(meta_data / 'avero_run_data_v03.tsv', sep='\t', header=0)
+# metadata files
+version = 'v04'
+p_run_data   = pd.read_csv(meta_data / f'progenity_run_data_{version}.tsv', sep='\t', header=0)
+a_run_data   = pd.read_csv(meta_data / f'avero_run_data_{version}.tsv', sep='\t', header=0)
 run_metadata = pd.concat([p_run_data, a_run_data], axis=0)
 
-p_sample_data   = pd.read_csv(meta_data / 'progenity_sample_data_v03.tsv', sep='\t', header=0)
-a_sample_data   = pd.read_csv(meta_data / 'avero_sample_data_v03.tsv', sep='\t', header=0)
+p_sample_data   = pd.read_csv(meta_data / f'progenity_sample_data_{version}.tsv', sep='\t', header=0)
+a_sample_data   = pd.read_csv(meta_data / f'avero_sample_data_{version}.tsv', sep='\t', header=0)
 sample_metadata = pd.concat([p_sample_data, a_sample_data], axis=0)
 sample_metadata.drop(labels=['COMPANY'], axis=1, inplace=True) #this is already in run_metadata
 sample_metadata.drop_duplicates(subset='SAMPLEID', keep='first', inplace=True)
 
-p_reported = pd.read_csv(meta_data / 'progenity_reported_data_v03.tsv', sep='\t', header=0)
-a_reported = pd.read_csv(meta_data / 'avero_reported_data_v03.tsv', sep='\t', header=0)
+p_reported = pd.read_csv(meta_data / f'progenity_reported_data_{version}.tsv', sep='\t', header=0)
+a_reported = pd.read_csv(meta_data / f'avero_reported_data_{version}.tsv', sep='\t', header=0)
 reported   = pd.concat([p_reported, a_reported], axis=0)
 
 exclude_samples = pd.read_csv(other_data / 'exclude_samples.txt', sep='\t', header=0)
@@ -52,12 +65,9 @@ sample_count = prod_run_data.groupby(['FLOWCELL'])['SAMPLE_ID'].nunique()
 sample_count.rename('SAMPLE_COUNT',inplace=True)
 prod_run_data = prod_run_data.merge(sample_count, how='left', left_on='FLOWCELL', right_on='FLOWCELL')
 
-# dropping all controls except males, some plates, and samples identified by Natalie (see exclude.txt)
-male_controls  = ['C00259', 'C00260', 'C00261', 'C00262', 'C00263']
+# dropping some plates and samples identified by Natalie (see exclude.txt)
 exclude_plates = ['PPU70017-1A', 'PPU70018-1B', 'PPU70020-1D']
-
 prod_run_data = prod_run_data.loc[~prod_run_data['PLATE'].isin(exclude_plates)]
-#prod_run_data = prod_run_data.loc[(prod_run_data['PROPS_ID'].isin(male_controls)) | (prod_run_data['CONTROL_SAMPLE'] == 'Test')]
 prod_run_data = prod_run_data.loc[~prod_run_data['SAMPLE_ID'].isin(exclude_samples['exclude'].to_list())]
 
 # join aggregated Run_Project_Poly_9002_run.tsv with the model calls
@@ -74,13 +84,11 @@ tmp2 = tmp.merge(sample_metadata, how='left', left_on='PROPS_ID', right_on='SAMP
 
 # putting reported data in a friendly format
 
-#first drop euploid entries
 euploid_values = ['FETAL EUPLOIDY', 'FETAL EUPLOIDY, FEMALE', 'FETAL EUPLOIDY, MALE', 'CHRY ABSENT', 'CHRY PRESENT']
 reported['ID'] = reported['FLOWCELL'] + '_' + reported['SAMPLEID'].apply(str)
 unique_sample_ids = reported.drop_duplicates(subset='ID', keep='first')
 
 aneuploid = reported.loc[~reported['RESULT'].isin(euploid_values)]
-euploid  = [sid for sid in unique_sample_ids['ID'] if sid not in aneuploid['ID']]
 
 # remap aneuploid RESULT values
 chr = ['13', '18', '21']
