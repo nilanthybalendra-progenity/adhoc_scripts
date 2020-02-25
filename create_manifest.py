@@ -70,6 +70,13 @@ exclude_plates = ['PPU70017-1A', 'PPU70018-1B', 'PPU70020-1D']
 prod_run_data = prod_run_data.loc[~prod_run_data['PLATE'].isin(exclude_plates)]
 prod_run_data = prod_run_data.loc[~prod_run_data['SAMPLE_ID'].isin(exclude_samples['exclude'].to_list())]
 
+# dropping some failed flowcells
+failed_fc = ['HMLGHDMXX', 'HMK27DMXX', 'HM3F2DMXX', 'HLV2MDMXX', 'HLV7LDMXX', 'HLVW7DMXX']
+prod_run_data = prod_run_data.loc[~prod_run_data['FLOWCELL'].isin(failed_fc)]
+
+# this is a flowcell that was run twice using the same fcid (before and after nipt 2.0 launch). Dropping the first run.
+prod_run_data = prod_run_data.loc[~(prod_run_data['FLOWCELL'].isin(['HKF7TDMXX']) & prod_run_data['ANALYSIS_DATETIME'].str.contains('2019-09-08'))]
+
 # join aggregated Run_Project_Poly_9002_run.tsv with the model calls
 tmp = prod_run_data.join(model31_calls.set_index('SAMPLE_ID'), sort=False, how='left', on='SAMPLE_ID')
 
@@ -125,9 +132,8 @@ tmp4['RERUN'] = tmp4.duplicated(subset='PROPS_ID', keep=False)
 rerun_samples_sorted = tmp4.loc[(tmp4['RERUN'] == True) & (tmp4['CONTROL_SAMPLE'] == 'Test')].sort_values(by=['PROPS_ID', 'ANALYSIS_DATETIME'])
 rerun_samples_sorted.loc[:, 'RUN_NUM'] = rerun_samples_sorted.groupby('PROPS_ID').cumcount()
 
-# map count to actual values
-mapping = {0: '1', 1: '2', 2: '>2'}
-rerun_samples_sorted.replace({'RUN_NUM': mapping}, inplace=True)
+# make it so it isn't 0 indexed :)
+rerun_samples_sorted['RUN_NUM'] += 1
 
 # put it together with stuff that was only run once
 one_run = tmp4.loc[~((tmp4['RERUN'] == True) & (tmp4['CONTROL_SAMPLE'] == 'Test'))]
