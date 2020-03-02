@@ -36,10 +36,16 @@ def standard_scatter(data_set,title, xaxis, yaxis, xlab, ylab, out_file):
     fig.savefig(out_file, bbox_inches='tight', dpi=250)
 
 
-def standard_scatter2(data_set1, title, xaxis, yaxis, xlab, ylab, out_file):
+def standard_scatter2(data_set1, title, xaxis, yaxis, xlab, ylab, out_file, xlim=None, ylim=None):
 
     p = ggplot(data_set1, aes(xaxis, yaxis, color='Model')) + geom_point(alpha=0.1) \
         + labs(x=xlab, y=ylab, title=title) + theme_bw() + stat_smooth(method='lm', se=False)
+
+    if xlim:
+        p += p9.scales.xlim(xlim[0], xlim[1])
+
+    if ylim:
+        p += p9.scales.ylim(ylim[0], ylim[1])
 
     p.save(out_file, format='png', dpi=500)
 
@@ -59,14 +65,22 @@ def make_scatter(call_data_path, call_data_path2, output_path):
     m = '3.1'
     chr_num = ['13', '18', '21']
 
-    for num in chr_num:
-        standard_scatter2(data[data[f'CHR{num}_CALL'] != 'FETAL EUPLOIDY'],
-                         f'Model{m} Trisomy {num}: T-Value vs. SNP Fetal Fraction',
+    # for num in chr_num:
+    #     standard_scatter2(data[data[f'CHR{num}_CALL'] == 'FETAL TRISOMY'], #what about monosomy?
+    #                      f'Model{m} Trisomy {num}: T-Value vs. SNP Fetal Fraction',
+    #                      'SNP_FETAL_PCT',
+    #                      f'CHR{num}_TVALUE',
+    #                      'SNP Fetal Fraction (%)',
+    #                      f'chr{num} T-Value',
+    #                      output_path / f'T{num}_Model{m}_t_event.png', xlim=(0,10), ylim=(0,15))
+
+    standard_scatter2(data[~data[f'CHRXY_CALL'].isin(['FETAL EUPLOIDY, FEMALE', 'FETAL EUPLOIDY, MALE'])], #what about monosomy?
+                         f'chrXY Aneuploidy: T-Value vs. SNP Fetal Fraction',
                          'SNP_FETAL_PCT',
-                         f'CHR{num}_TVALUE',
+                         f'CHRX_TVALUE',
                          'SNP Fetal Fraction (%)',
-                         f'chr{num} T-Value',
-                         output_path / f'T{num}_Model{m}_t_event.png')
+                         f'chrX T-Value',
+                         output_path / f'X_Model{m}_t_event.png', xlim=(0,10), ylim=(0,15))
 
 
 def nipt_null_histogram(call_file_path, title, output_file, plot_x=False, by_sex=False):
