@@ -32,8 +32,8 @@ prod_run_data.drop_duplicates(subset='SAMPLE_ID', keep='first', inplace=True)
 # read in model output files
 raw_model31_calls = pd.read_csv(analytical_data / 'calls_model3.1.tsv', sep='\t', header=0)
 columns_mod_file  = ['SAMPLE_ID', 'SNP_FETAL_PCT', 'GOF', 'READ_COUNT', 'CHR13_CALL', 'CHR18_CALL', 'CHR21_CALL',
-                    'CHRXY_CALL', 'CHR13_TVALUE', 'CHR18_TVALUE', 'CHR21_TVALUE', 'CHRX_TVALUE','CHRY_TVALUE',
-                    'CHRY_FETAL_PCT']
+                     'CHRXY_CALL', 'CHR13_PLOIDY', 'CHR18_PLOIDY', 'CHR21_PLOIDY', 'CHRX_PLOIDY', 'CHRY_PLOIDY',
+                     'CHR13_TVALUE', 'CHR18_TVALUE', 'CHR21_TVALUE', 'CHRX_TVALUE', 'CHRY_TVALUE', 'CHRY_FETAL_PCT']
 
 model31_calls = pd.concat([raw_model31_calls[columns_mod_file], recent_prod_run[columns_mod_file]], axis=0).drop_duplicates(subset='SAMPLE_ID', keep='first')
 
@@ -170,5 +170,10 @@ tmp6['BMIATTIMEOFDRAW'].replace(0,np.nan, inplace=True)
 tmp6['BMIATTIMEOFDRAW'].replace(-1,np.nan, inplace=True)
 tmp6.loc[(tmp6['PROPS_ID'].str[0] != 'A') & (tmp6['COMPANY'].isnull()), 'COMPANY'] = 'Progenity'
 tmp6.loc[(tmp6['PROPS_ID'].str[0] == 'A') & (tmp6['COMPANY'].isnull()), 'COMPANY'] = 'Avero'
+
+
+bad_controls = pd.read_csv('/mnt/bfx_projects/nipt_lifecycle/analysis/wip/fetal_fraction_model/02_One_off_requests/high_gof_lowt_ctrls.tsv', sep='\t', header=0)
+
+tmp6['BAD_CONTROL'] = tmp6['PROPS_ID'].isin(bad_controls['PROPS_ID'])
 
 tmp6.to_csv('manifest.tsv', sep='\t', index=None)
