@@ -175,5 +175,15 @@ tmp6.loc[(tmp6['PROPS_ID'].str[0] == 'A') & (tmp6['COMPANY'].isnull()), 'COMPANY
 bad_controls = pd.read_csv('/mnt/bfx_projects/nipt_lifecycle/analysis/wip/fetal_fraction_model/02_One_off_requests/high_gof_lowt_ctrls.tsv', sep='\t', header=0)
 
 tmp6['BAD_CONTROL'] = tmp6['PROPS_ID'].isin(bad_controls['PROPS_ID'])
+tmp6.rename(columns={'PROPS_ID': 'INDIVIDUAL_ID'}, inplace=True)
 
-tmp6.to_csv('manifest.tsv', sep='\t', index=None)
+#fill in KNOWN PLOIDY VALUES
+calls = calls.to_frame()
+calls.reset_index(inplace=True)
+calls.columns = ['SAMPLE_ID', 'CALL']
+calls['INDIVIDUAL_ID'] = calls['SAMPLE_ID'].str.split('_').str[-1]
+calls.drop_duplicates(subset='INDIVIDUAL_ID', inplace=True)
+tmp7 = tmp6.merge(calls[['INDIVIDUAL_ID', 'CALL']], how='left', left_on='INDIVIDUAL_ID', right_on='INDIVIDUAL_ID')
+
+
+tmp7.to_csv('manifest_new.tsv', sep='\t', index=None)
