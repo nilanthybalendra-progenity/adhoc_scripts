@@ -116,15 +116,25 @@ tmp3 = tmp2.join(calls.rename('REPORTED_PLOIDY'), sort=False, how='left', on='jo
 
 # now add other columns that are useful
 
-#FETAL SEX
-xy = reported.loc[reported['OUTCOMENAME']=='Chromosome XY', ['ID','RESULT']]
+# FETAL SEX
+xy = reported.loc[reported['OUTCOMENAME']=='Chromosome XY', ['SAMPLEID','RESULT']]
+xy.to_csv('xy.tsv', sep='\t', index=None)
 xy.loc[xy['RESULT'].str.contains('FETAL EUPLOIDY, FEMALE|FETAL X0|FETAL XXX'), 'FETAL_SEX']                   = 'FEMALE'
 xy.loc[xy['RESULT'].str.contains('FETAL EUPLOIDY, MALE|FETAL XXY|FETAL XYY|CHRY INDETERMINATE'), 'FETAL_SEX'] = 'MALE'
-tmp4 = tmp3.join(xy.set_index('ID'), sort=False, how='left', on='join_helper2')
+xy['SAMPLEID'] = xy['SAMPLEID'].astype(str)
+xy.drop_duplicates(subset='SAMPLEID', inplace=True, keep='first')
+
+tmp4 = tmp3.merge(xy, how='left', left_on='PROPS_ID', right_on='SAMPLEID')
+
+# #FETAL SEX
+# xy = reported.loc[reported['OUTCOMENAME']=='Chromosome XY', ['ID','RESULT']]
+# xy.loc[xy['RESULT'].str.contains('FETAL EUPLOIDY, FEMALE|FETAL X0|FETAL XXX'), 'FETAL_SEX']                   = 'FEMALE'
+# xy.loc[xy['RESULT'].str.contains('FETAL EUPLOIDY, MALE|FETAL XXY|FETAL XYY|CHRY INDETERMINATE'), 'FETAL_SEX'] = 'MALE'
+# tmp4 = tmp3.join(xy.set_index('ID'), sort=False, how='left', on='join_helper2')
 
 #HOST SEX
 tmp4['HOST_SEX'] = 'FEMALE'
-tmp4.loc[tmp4['CONTROL_SAMPLE'] == 'Control', 'HOST_SEX'] = 'MALE' #lab only runs male controls
+tmp4.loc[tmp4['CONTROL_SAMPLE'] == 'Control', 'HOST_SEX'] = 'MALE' #lab only runs male controls???
 
 #RUN NUMBER
 tmp4['RERUN'] = tmp4.duplicated(subset='PROPS_ID', keep=False)
@@ -145,13 +155,21 @@ tmp6 = tmp5.merge(outcome_data, how='left', left_on='PROPS_ID', right_on='SID')
 
 # KNOWN PLOIDY
 sercare = ['1902150150', '1902150160', '1902150162']
-tmp6['KNOWN_PLOIDY'] = tmp6.apply(lambda row: row['OUTCOME_PLOIDY'] if not pd.isna(row['OUTCOME_PLOIDY']) else row['REPORTED_PLOIDY'], axis=1)
-tmp6.loc[tmp6['PROPS_ID'].isin(sercare), 'KNOWN_PLOIDY'] = 'TRISOMY 13, TRISOMY 18, TRISOMY 21'
-tmp6.loc[tmp6['CONTROL_SAMPLE'] == 'Control', 'KNOWN_PLOIDY'] = 'FETAL EUPLOIDY'
-tmp6.loc[pd.isna(tmp6['FN']), 'FN'] = False
+
+calls = calls.to_frame()
+calls.reset_index(inplace=True)
+calls.columns = ['SAMPLE_ID', 'KNOWN_PLOIDY']
+calls['PROPS_ID'] = calls['SAMPLE_ID'].str.split('_').str[-1]
+calls.drop_duplicates(subset='PROPS_ID', inplace=True, keep='first')
+tmp7 = tmp6.merge(calls[['PROPS_ID', 'KNOWN_PLOIDY']], how='left', left_on='PROPS_ID', right_on='PROPS_ID')
+
+tmp7['KNOWN_PLOIDY'] = np.where(tmp7['OUTCOME_PLOIDY'].isnull() == True, tmp7['KNOWN_PLOIDY'], tmp7['OUTCOME_PLOIDY'])
+tmp7.loc[tmp7['PROPS_ID'].isin(sercare), 'KNOWN_PLOIDY'] = 'TRISOMY 13, TRISOMY 18, TRISOMY 21'
+tmp7.loc[tmp7['CONTROL_SAMPLE'] == 'Control', 'KNOWN_PLOIDY'] = 'FETAL EUPLOIDY'
+tmp7.loc[pd.isna(tmp7['FN']), 'FN'] = False
 
 #replace KNOWN_PLOIDY with blank for dubious values/calls
-positives = tmp6.loc[(tmp6['KNOWN_PLOIDY'] != 'FETAL EUPLOIDY') & (tmp6['KNOWN_PLOIDY'].isnull() == False)]
+positives = tmp7.loc[(tmp7['KNOWN_PLOIDY'] != 'FETAL EUPLOIDY') & (tmp7['KNOWN_PLOIDY'].isnull() == False)]
 outlier_sid = []
 
 for c in chr:
@@ -160,30 +178,30 @@ for c in chr:
     outlier = specific.loc[(specific[f'CHR{c}_TVALUE'] < 8) & (specific['SNP_FETAL_PCT'] > 8)]
     outlier_sid += outlier['SAMPLE_ID'].tolist()
 
-tmp6['KNOWN_PLOIDY'].loc[tmp6['SAMPLE_ID'].isin(outlier_sid)] = ''
+tmp7['KNOWN_PLOIDY'].loc[tmp7['SAMPLE_ID'].isin(outlier_sid)] = ''
 
 # finally some clean up
-tmp6.drop(labels=['join_helper2', 'join_helper','SAMPLEID', 'SampleId', 'SID', 'RESULT'], axis=1, inplace=True)
-tmp6.rename(columns={'OrderId': 'ORDER_ID', 'State': 'STATE', 'PostalCode': 'POSTAL_CODE'}, inplace=True)
-tmp6.loc[tmp6['EXTRACTIONINSTRUMENTNAME'] == 'L000461', 'EXTRACTIONINSTRUMENTNAME'] = 'L00461'
-tmp6['BMIATTIMEOFDRAW'].replace(0,np.nan, inplace=True)
-tmp6['BMIATTIMEOFDRAW'].replace(-1,np.nan, inplace=True)
-tmp6.loc[(tmp6['PROPS_ID'].str[0] != 'A') & (tmp6['COMPANY'].isnull()), 'COMPANY'] = 'Progenity'
-tmp6.loc[(tmp6['PROPS_ID'].str[0] == 'A') & (tmp6['COMPANY'].isnull()), 'COMPANY'] = 'Avero'
+tmp7.drop(labels=['join_helper2', 'join_helper', 'SampleId', 'SID', 'RESULT'], axis=1, inplace=True)
+tmp7.rename(columns={'OrderId': 'ORDER_ID', 'State': 'STATE', 'PostalCode': 'POSTAL_CODE'}, inplace=True)
+tmp7.loc[tmp7['EXTRACTIONINSTRUMENTNAME'] == 'L000461', 'EXTRACTIONINSTRUMENTNAME'] = 'L00461'
+tmp7['BMIATTIMEOFDRAW'].replace(0,np.nan, inplace=True)
+tmp7['BMIATTIMEOFDRAW'].replace(-1,np.nan, inplace=True)
+tmp7.loc[(tmp7['PROPS_ID'].str[0] != 'A') & (tmp7['COMPANY'].isnull()), 'COMPANY'] = 'Progenity'
+tmp7.loc[(tmp7['PROPS_ID'].str[0] == 'A') & (tmp7['COMPANY'].isnull()), 'COMPANY'] = 'Avero'
 
 
 bad_controls = pd.read_csv('/mnt/bfx_projects/nipt_lifecycle/analysis/wip/fetal_fraction_model/02_One_off_requests/high_gof_lowt_ctrls.tsv', sep='\t', header=0)
 
-tmp6['BAD_CONTROL'] = tmp6['PROPS_ID'].isin(bad_controls['PROPS_ID'])
-tmp6.rename(columns={'PROPS_ID': 'INDIVIDUAL_ID'}, inplace=True)
+tmp7['BAD_CONTROL'] = tmp7['PROPS_ID'].isin(bad_controls['PROPS_ID'])
+tmp7.rename(columns={'PROPS_ID': 'INDIVIDUAL_ID'}, inplace=True)
+#
+# #fill in KNOWN PLOIDY VALUES
+# calls = calls.to_frame()
+# calls.reset_index(inplace=True)
+# calls.columns = ['SAMPLE_ID', 'CALL']
+# calls['INDIVIDUAL_ID'] = calls['SAMPLE_ID'].str.split('_').str[-1]
+# calls.drop_duplicates(subset='INDIVIDUAL_ID', inplace=True)
+# tmp7 = tmp6.merge(calls[['INDIVIDUAL_ID', 'CALL']], how='left', left_on='INDIVIDUAL_ID', right_on='INDIVIDUAL_ID')
 
-#fill in KNOWN PLOIDY VALUES
-calls = calls.to_frame()
-calls.reset_index(inplace=True)
-calls.columns = ['SAMPLE_ID', 'CALL']
-calls['INDIVIDUAL_ID'] = calls['SAMPLE_ID'].str.split('_').str[-1]
-calls.drop_duplicates(subset='INDIVIDUAL_ID', inplace=True)
-tmp7 = tmp6.merge(calls[['INDIVIDUAL_ID', 'CALL']], how='left', left_on='INDIVIDUAL_ID', right_on='INDIVIDUAL_ID')
 
-
-tmp7.to_csv('manifest_new.tsv', sep='\t', index=None)
+tmp7.to_csv('manifest_new2.tsv', sep='\t', index=None)
