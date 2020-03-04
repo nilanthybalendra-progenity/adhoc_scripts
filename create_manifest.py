@@ -123,14 +123,7 @@ xy.loc[xy['RESULT'].str.contains('FETAL EUPLOIDY, FEMALE|FETAL X0|FETAL XXX'), '
 xy.loc[xy['RESULT'].str.contains('FETAL EUPLOIDY, MALE|FETAL XXY|FETAL XYY|CHRY INDETERMINATE'), 'FETAL_SEX'] = 'MALE'
 xy['SAMPLEID'] = xy['SAMPLEID'].astype(str)
 xy.drop_duplicates(subset='SAMPLEID', inplace=True, keep='first')
-
 tmp4 = tmp3.merge(xy, how='left', left_on='PROPS_ID', right_on='SAMPLEID')
-
-# #FETAL SEX
-# xy = reported.loc[reported['OUTCOMENAME']=='Chromosome XY', ['ID','RESULT']]
-# xy.loc[xy['RESULT'].str.contains('FETAL EUPLOIDY, FEMALE|FETAL X0|FETAL XXX'), 'FETAL_SEX']                   = 'FEMALE'
-# xy.loc[xy['RESULT'].str.contains('FETAL EUPLOIDY, MALE|FETAL XXY|FETAL XYY|CHRY INDETERMINATE'), 'FETAL_SEX'] = 'MALE'
-# tmp4 = tmp3.join(xy.set_index('ID'), sort=False, how='left', on='join_helper2')
 
 #HOST SEX
 tmp4['HOST_SEX'] = 'FEMALE'
@@ -178,6 +171,8 @@ for c in chr:
     outlier = specific.loc[(specific[f'CHR{c}_TVALUE'] < 8) & (specific['SNP_FETAL_PCT'] > 8)]
     outlier_sid += outlier['SAMPLE_ID'].tolist()
 
+print(f'Outliers: {len(outlier_sid)}')
+
 tmp7['KNOWN_PLOIDY'].loc[tmp7['SAMPLE_ID'].isin(outlier_sid)] = ''
 
 # finally some clean up
@@ -194,14 +189,5 @@ bad_controls = pd.read_csv('/mnt/bfx_projects/nipt_lifecycle/analysis/wip/fetal_
 
 tmp7['BAD_CONTROL'] = tmp7['PROPS_ID'].isin(bad_controls['PROPS_ID'])
 tmp7.rename(columns={'PROPS_ID': 'INDIVIDUAL_ID'}, inplace=True)
-#
-# #fill in KNOWN PLOIDY VALUES
-# calls = calls.to_frame()
-# calls.reset_index(inplace=True)
-# calls.columns = ['SAMPLE_ID', 'CALL']
-# calls['INDIVIDUAL_ID'] = calls['SAMPLE_ID'].str.split('_').str[-1]
-# calls.drop_duplicates(subset='INDIVIDUAL_ID', inplace=True)
-# tmp7 = tmp6.merge(calls[['INDIVIDUAL_ID', 'CALL']], how='left', left_on='INDIVIDUAL_ID', right_on='INDIVIDUAL_ID')
-
 
 tmp7.to_csv('manifest_new2.tsv', sep='\t', index=None)
