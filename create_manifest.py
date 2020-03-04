@@ -190,4 +190,4 @@ bad_controls = pd.read_csv('/mnt/bfx_projects/nipt_lifecycle/analysis/wip/fetal_
 tmp7['BAD_CONTROL'] = tmp7['PROPS_ID'].isin(bad_controls['PROPS_ID'])
 tmp7.rename(columns={'PROPS_ID': 'INDIVIDUAL_ID'}, inplace=True)
 
-tmp7.to_csv('manifest_new2.tsv', sep='\t', index=None)
+tmp7.to_csv('manifest.tsv', sep='\t', index=None)
