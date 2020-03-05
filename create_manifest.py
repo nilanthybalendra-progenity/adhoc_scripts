@@ -118,7 +118,6 @@ tmp3 = tmp2.join(calls.rename('REPORTED_PLOIDY'), sort=False, how='left', on='jo
 
 # FETAL SEX
 xy = reported.loc[reported['OUTCOMENAME']=='Chromosome XY', ['SAMPLEID','RESULT']]
-xy.to_csv('xy.tsv', sep='\t', index=None)
 xy.loc[xy['RESULT'].str.contains('FETAL EUPLOIDY, FEMALE|FETAL X0|FETAL XXX'), 'FETAL_SEX']                   = 'FEMALE'
 xy.loc[xy['RESULT'].str.contains('FETAL EUPLOIDY, MALE|FETAL XXY|FETAL XYY|CHRY INDETERMINATE'), 'FETAL_SEX'] = 'MALE'
 xy['SAMPLEID'] = xy['SAMPLEID'].astype(str)
@@ -143,8 +142,9 @@ one_run = tmp4.loc[~((tmp4['RERUN'] == True) & (tmp4['CONTROL_SAMPLE'] == 'Test'
 one_run.loc[:, 'RUN_NUM'] = 1
 tmp5 = pd.concat([one_run, rerun_samples_sorted], axis=0)
 
-# OUTCOME PLOIDY
+# OUTCOME PLOIDY and SEX
 tmp6 = tmp5.merge(outcome_data, how='left', left_on='PROPS_ID', right_on='SID')
+tmp6['FETAL_SEX'] = np.where(tmp6['OUTCOME_SEX'].isnull() == True, tmp6['FETAL_SEX'], tmp6['OUTCOME_SEX'])
 
 # KNOWN PLOIDY
 sercare = ['1902150150', '1902150160', '1902150162']
@@ -184,10 +184,13 @@ tmp7['BMIATTIMEOFDRAW'].replace(-1,np.nan, inplace=True)
 tmp7.loc[(tmp7['PROPS_ID'].str[0] != 'A') & (tmp7['COMPANY'].isnull()), 'COMPANY'] = 'Progenity'
 tmp7.loc[(tmp7['PROPS_ID'].str[0] == 'A') & (tmp7['COMPANY'].isnull()), 'COMPANY'] = 'Avero'
 
-
+# dealing with weird controls
 bad_controls = pd.read_csv('/mnt/bfx_projects/nipt_lifecycle/analysis/wip/fetal_fraction_model/02_One_off_requests/high_gof_lowt_ctrls.tsv', sep='\t', header=0)
-
 tmp7['BAD_CONTROL'] = tmp7['PROPS_ID'].isin(bad_controls['PROPS_ID'])
+
+tmp7.loc[tmp7['WELL'] == 'H12', 'CONTROL_SAMPLE'] = 'NTC'
+tmp7.loc[tmp7['WELL'] == 'H12', 'KNOWN_PLOIDY'] = np.nan
+
 tmp7.rename(columns={'PROPS_ID': 'INDIVIDUAL_ID'}, inplace=True)
 
 tmp7.to_csv('manifest.tsv', sep='\t', index=None)
