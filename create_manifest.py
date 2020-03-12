@@ -4,8 +4,41 @@ import pandas as pd
 
 from pathlib import Path
 
-# paths where data files are
 
+def control_list(data):
+    tmp = data.loc[data['CONTROL_SAMPLE'] != 'Test', ['PROPS_ID', 'KNOWN_PLOIDY', 'HOST_SEX', 'FETAL_SEX', 'WELL', 'RUN', 'CONTROL_SAMPLE']]
+
+    tmp.loc[tmp['WELL'] == 'H12', 'CONTROL_SAMPLE'] = 'NTC'
+    tmp.loc[tmp['WELL'] == 'H12', 'KNOWN_PLOIDY'] = np.nan
+    tmp.loc[tmp['WELL'] == 'H12', 'SET'] = True
+
+    tmp.loc[tmp['WELL'] == 'G12', 'HOST_SEX'] = 'FEMALE'
+    tmp.loc[tmp['WELL'] == 'G12', 'KNOWN_PLOIDY'] = 'FETAL EUPLOIDY'
+    tmp.loc[tmp['WELL'] == 'G12', 'FETAL_SEX'] = 'FEMALE'
+    tmp.loc[tmp['WELL'] == 'G12', 'SET'] = True
+
+    tmp.loc[tmp['WELL'] == 'E12', 'HOST_SEX'] = 'MALE'
+    tmp.loc[tmp['WELL'] == 'E12', 'KNOWN_PLOIDY'] = 'FETAL EUPLOIDY'
+    tmp.loc[tmp['WELL'] == 'E12', 'SET'] = True
+
+    with_run = tmp.loc[tmp['RUN'].isnull() == False]
+    rest = tmp.loc[~tmp['RUN'].isnull() == False]
+
+    with_run['RUN_END'] = with_run['RUN'].str[-1]
+    with_run['TMP'] = with_run.apply(lambda row: True if (int(row['RUN_END']) % 2 == 0) else False, axis=1)
+
+    with_run.loc[(with_run['WELL'] == 'F12') & (with_run['TMP'] == True), 'HOST_SEX'] = 'FEMALE'
+    with_run.loc[(with_run['WELL'] == 'F12') & (with_run['TMP'] == True), 'KNOWN_PLOIDY'] = 'FETAL EUPLOIDY'
+    with_run.loc[(with_run['WELL'] == 'F12') & (with_run['TMP'] == True), 'FETAL_SEX'] = 'MALE'
+    with_run.loc[(with_run['WELL'] == 'F12') & (with_run['TMP'] == True), 'SET'] = True
+
+    control_info = pd.concat([with_run, rest], axis=0, sort=False)
+
+    return control_info.loc[
+        control_info['SET'] == True,
+        ['PROPS_ID', 'KNOWN_PLOIDY', 'HOST_SEX', 'FETAL_SEX', 'CONTROL_SAMPLE']].drop_duplicates(subset='PROPS_ID', keep='first')
+
+# paths where data files are
 main_data_dir =   Path('/mnt/bfx_projects/nipt_lifecycle/data/wip/metadata')
 
 meta_data =       main_data_dir / 'from_BI'
@@ -14,8 +47,7 @@ other_data =      main_data_dir / 'other_data'
 
 # read in analytical output files
 columns_run_file = ['SAMPLE_ID', 'PROPS_ID', 'FLOWCELL', 'PLATE', 'WELL', 'CONTROL_SAMPLE', 'ANALYSIS_DATETIME',
-                    'DUPLICATION_RATE', 'READS_0MM', 'READS_1MM', 'READS_2MM', 'EFFICIENCY_0MM', 'EFFICIENCY_1MM',
-                    'EFFICIENCY_2MM', 'READS_TOTAL_ALIGNED_PCT']
+                    'DUPLICATION_RATE', 'READS_TOTAL_ALIGNED_PCT', 'SNP_FETAL_PCT']
 early_prod_run = pd.read_csv(analytical_data / 'poly_sample_early_prod.tsv', sep='\t', header=0)
 late_prod_run  = pd.read_csv(analytical_data /'poly_sample_late_prod.tsv', sep='\t', header=0)
 recent_prod_run = pd.read_csv(analytical_data / 'poly_sample_02042020.tsv', sep='\t', header=0)
@@ -31,7 +63,7 @@ prod_run_data.drop_duplicates(subset='SAMPLE_ID', keep='first', inplace=True)
 
 # read in model output files
 raw_model31_calls = pd.read_csv(analytical_data / 'calls_model3.1.tsv', sep='\t', header=0)
-columns_mod_file  = ['SAMPLE_ID', 'SNP_FETAL_PCT', 'GOF', 'READ_COUNT', 'CHR13_CALL', 'CHR18_CALL', 'CHR21_CALL',
+columns_mod_file  = ['SAMPLE_ID', 'GOF', 'READ_COUNT', 'CHR13_CALL', 'CHR18_CALL', 'CHR21_CALL',
                      'CHRXY_CALL', 'CHR13_PLOIDY', 'CHR18_PLOIDY', 'CHR21_PLOIDY', 'CHRX_PLOIDY', 'CHRY_PLOIDY',
                      'CHR13_TVALUE', 'CHR18_TVALUE', 'CHR21_TVALUE', 'CHRX_TVALUE', 'CHRY_TVALUE', 'CHRY_FETAL_PCT']
 
@@ -175,22 +207,24 @@ print(f'Outliers: {len(outlier_sid)}')
 
 tmp7['KNOWN_PLOIDY'].loc[tmp7['SAMPLE_ID'].isin(outlier_sid)] = ''
 
+# dealing with controls
+control_info = control_list(tmp7)
+
+for i, row in control_info.iterrows():
+    cond = tmp7['PROPS_ID'] == row['PROPS_ID']
+    tmp7.loc[cond, 'HOST_SEX']       = row['HOST_SEX']
+    tmp7.loc[cond, 'FETAL_SEX']      = row['FETAL_SEX']
+    tmp7.loc[cond, 'CONTROL_SAMPLE'] = row['CONTROL_SAMPLE']
+    tmp7.loc[cond, 'KNOWN_PLOIDY']   = row['KNOWN_PLOIDY']
+
 # finally some clean up
-tmp7.drop(labels=['join_helper2', 'join_helper', 'SampleId', 'SID', 'RESULT'], axis=1, inplace=True)
+tmp7.drop(labels=['join_helper2', 'join_helper', 'SampleId', 'SID', 'RESULT', 'SAMPLEID_x', 'SAMPLEID_y'], axis=1, inplace=True)
 tmp7.rename(columns={'OrderId': 'ORDER_ID', 'State': 'STATE', 'PostalCode': 'POSTAL_CODE'}, inplace=True)
 tmp7.loc[tmp7['EXTRACTIONINSTRUMENTNAME'] == 'L000461', 'EXTRACTIONINSTRUMENTNAME'] = 'L00461'
 tmp7['BMIATTIMEOFDRAW'].replace(0,np.nan, inplace=True)
 tmp7['BMIATTIMEOFDRAW'].replace(-1,np.nan, inplace=True)
 tmp7.loc[(tmp7['PROPS_ID'].str[0] != 'A') & (tmp7['COMPANY'].isnull()), 'COMPANY'] = 'Progenity'
 tmp7.loc[(tmp7['PROPS_ID'].str[0] == 'A') & (tmp7['COMPANY'].isnull()), 'COMPANY'] = 'Avero'
-
-# dealing with weird controls
-bad_controls = pd.read_csv('/mnt/bfx_projects/nipt_lifecycle/analysis/wip/fetal_fraction_model/02_One_off_requests/high_gof_lowt_ctrls.tsv', sep='\t', header=0)
-tmp7['BAD_CONTROL'] = tmp7['PROPS_ID'].isin(bad_controls['PROPS_ID'])
-
-tmp7.loc[tmp7['WELL'] == 'H12', 'CONTROL_SAMPLE'] = 'NTC'
-tmp7.loc[tmp7['WELL'] == 'H12', 'KNOWN_PLOIDY'] = np.nan
-
 tmp7.rename(columns={'PROPS_ID': 'INDIVIDUAL_ID'}, inplace=True)
 
 tmp7.to_csv('manifest.tsv', sep='\t', index=None)
