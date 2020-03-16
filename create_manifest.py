@@ -1,5 +1,6 @@
 import numpy as np
 import os
+import  json
 import pandas as pd
 
 from pathlib import Path
@@ -80,6 +81,17 @@ a_sample_data   = pd.read_csv(meta_data / f'avero_sample_data_{version}.tsv', se
 sample_metadata = pd.concat([p_sample_data, a_sample_data], axis=0)
 sample_metadata.drop(labels=['COMPANY'], axis=1, inplace=True) #this is already in run_metadata
 sample_metadata.drop_duplicates(subset='SAMPLEID', keep='first', inplace=True)
+
+#fix weird STATE values
+with open("states.json") as f:
+    state_abbv = json.load(f)
+
+sample_metadata['State'] = sample_metadata.apply(
+    lambda row: row['State'] if row['State'] in state_abbv.values()
+    else state_abbv[row['State']] if row['State'] in state_abbv.keys()
+    else row['PostalCode'] if str(row['PostalCode']) in state_abbv.values()
+    else 'CA' if str(row['State'])[:2] == 'CA'
+    else np.nan, axis=1)
 
 p_reported = pd.read_csv(meta_data / f'progenity_reported_data_{version}.tsv', sep='\t', header=0)
 a_reported = pd.read_csv(meta_data / f'avero_reported_data_{version}.tsv', sep='\t', header=0)
