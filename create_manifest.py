@@ -71,7 +71,7 @@ columns_mod_file  = ['SAMPLE_ID', 'GOF', 'READ_COUNT', 'CHR13_CALL', 'CHR18_CALL
 model31_calls = pd.concat([raw_model31_calls[columns_mod_file], recent_prod_run[columns_mod_file]], axis=0).drop_duplicates(subset='SAMPLE_ID', keep='first')
 
 # metadata files
-version = 'v04'
+version = 'v05'
 p_run_data   = pd.read_csv(meta_data / f'progenity_run_data_{version}.tsv', sep='\t', header=0)
 a_run_data   = pd.read_csv(meta_data / f'avero_run_data_{version}.tsv', sep='\t', header=0)
 run_metadata = pd.concat([p_run_data, a_run_data], axis=0)
@@ -96,6 +96,7 @@ sample_metadata['State'] = sample_metadata.apply(
 p_reported = pd.read_csv(meta_data / f'progenity_reported_data_{version}.tsv', sep='\t', header=0)
 a_reported = pd.read_csv(meta_data / f'avero_reported_data_{version}.tsv', sep='\t', header=0)
 reported   = pd.concat([p_reported, a_reported], axis=0)
+reported = reported.loc[reported['OUTCOMENAME'] != 'Chromosome XY - Twin'] #because we don't care about twin calls
 
 exclude_samples = pd.read_csv(other_data / 'exclude_samples.txt', sep='\t', header=0)
 outcome_data    = pd.read_csv(other_data / 'outcomes.txt', sep='\t', header=0, dtype={'SID': object})
@@ -150,10 +151,18 @@ for c in chr:
 
 # create calls dataframe
 aneuploid_calls = aneuploid.groupby('ID')['RESULT'].apply(', '.join) #join calls if sample has more than one call
-euploid_id      = [sid for sid in unique_sample_ids['ID'] if sid not in aneuploid['ID'].tolist()]
+
+euploid_id      = [sid for sid in unique_sample_ids['ID'] if sid not in aneuploid['ID'].tolist()] #everything not in the above list but in the reported dataframe is euploid
 euploid_calls   = pd.Series('FETAL EUPLOIDY', index=euploid_id)
 calls = euploid_calls.append(aneuploid_calls)
-
+#calls.to_csv('tmp_calls.tsv', sep='\t')
+# # deal with fail
+# not_failed = calls.loc[~calls[1].contains('Fail|FAIL')]
+# failed_calls = calls.loc[calls[1].contains('Fail|FAIL')]
+# failed_calls[1] = failed_calls[1].split(',').str[0]
+#
+# calls = not_failed.append(failed_calls)
+# calls.to_csv('final_calls.tsv', sep='\t')
 #join calls to manifest
 tmp2['join_helper2'] = tmp2['FLOWCELL'] + '_' + tmp2['PROPS_ID']
 tmp3 = tmp2.join(calls.rename('REPORTED_PLOIDY'), sort=False, how='left', on='join_helper2')
@@ -239,4 +248,15 @@ tmp7.loc[(tmp7['PROPS_ID'].str[0] != 'A') & (tmp7['COMPANY'].isnull()), 'COMPANY
 tmp7.loc[(tmp7['PROPS_ID'].str[0] == 'A') & (tmp7['COMPANY'].isnull()), 'COMPANY'] = 'Avero'
 tmp7.rename(columns={'PROPS_ID': 'INDIVIDUAL_ID'}, inplace=True)
 
-tmp7.to_csv('manifest.tsv', sep='\t', index=None)
+failed = tmp7.loc[tmp7['REPORTED_PLOIDY'].str.contains('Fail') | tmp7['REPORTED_PLOIDY'].str.contains('FAIL')]
+not_failed = tmp7.loc[~(tmp7['REPORTED_PLOIDY'].str.contains('Fail') | tmp7['REPORTED_PLOIDY'].str.contains('FAIL'))]
+failed['REPORTED_PLOIDY'] = failed['REPORTED_PLOIDY'].str.split(',').str[0]
+tmp8 = pd.concat([failed, not_failed], axis=0, sort=False)
+
+failed = tmp8.loc[tmp8['KNOWN_PLOIDY'].str.contains('Fail') | tmp8['KNOWN_PLOIDY'].str.contains('FAIL')]
+not_failed = tmp8.loc[~(tmp7['KNOWN_PLOIDY'].str.contains('Fail') | tmp8['KNOWN_PLOIDY'].str.contains('FAIL'))]
+failed['KNOWN_PLOIDY'] = failed['KNOWN_PLOIDY'].str.split(',').str[0]
+tmp9 = pd.concat([failed, not_failed], axis=0, sort=False)
+
+
+tmp9.to_csv('manifest.tsv', sep='\t', index=None)
