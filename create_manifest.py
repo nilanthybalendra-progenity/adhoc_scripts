@@ -225,6 +225,8 @@ for c in chr:
     outlier_sid += outlier['SAMPLE_ID'].tolist()
 
 print(f'Outliers: {len(outlier_sid)}')
+tmp7['IS_OUTLIER'] = False
+tmp7.loc[tmp7['SAMPLE_ID'].isin(outlier_sid), 'IS_OUTLIER'] = True
 
 tmp7['KNOWN_PLOIDY'].loc[tmp7['SAMPLE_ID'].isin(outlier_sid)] = ''
 
@@ -240,7 +242,7 @@ for i, row in control_info.iterrows():
 
 # finally some clean up
 tmp7.drop(labels=['join_helper2', 'join_helper', 'SampleId', 'SID', 'RESULT', 'SAMPLEID_x', 'SAMPLEID_y'], axis=1, inplace=True)
-tmp7.rename(columns={'OrderId': 'ORDER_ID', 'State': 'STATE', 'PostalCode': 'POSTAL_CODE'}, inplace=True)
+tmp7.rename(columns={'OrderId': 'ORDER_ID', 'State': 'STATE', 'PostalCode': 'POSTAL_CODE', 'CONTROL_TYPE': 'SAMPLE_TYPE'}, inplace=True)
 tmp7.loc[tmp7['EXTRACTIONINSTRUMENTNAME'] == 'L000461', 'EXTRACTIONINSTRUMENTNAME'] = 'L00461'
 tmp7['BMIATTIMEOFDRAW'].replace(0,np.nan, inplace=True)
 tmp7['BMIATTIMEOFDRAW'].replace(-1,np.nan, inplace=True)
@@ -258,5 +260,9 @@ not_failed = tmp8.loc[~(tmp7['KNOWN_PLOIDY'].str.contains('Fail') | tmp8['KNOWN_
 failed['KNOWN_PLOIDY'] = failed['KNOWN_PLOIDY'].str.split(',').str[0]
 tmp9 = pd.concat([failed, not_failed], axis=0, sort=False)
 
+# fixing weird user entry
+tmp9.loc[tmp9['PLATESETUPUSERNAME'] == 'matthew.o&#39;hara']      = 'matthew.ohara'
+tmp9.loc[tmp9['TARGETEDCAPTUREUSERNAME'] == 'matthew.o&#39;hara'] = 'matthew.ohara'
+tmp9.loc[tmp9['INDEXINGPCRUSERNAME'] == 'matthew.o&#39;hara']     = 'matthew.ohara'
 
 tmp9.to_csv('manifest.tsv', sep='\t', index=None)
