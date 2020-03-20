@@ -49,9 +49,12 @@ other_data =      main_data_dir / 'other_data'
 # read in analytical output files
 columns_run_file = ['SAMPLE_ID', 'PROPS_ID', 'FLOWCELL', 'PLATE', 'WELL', 'CONTROL_SAMPLE', 'ANALYSIS_DATETIME',
                     'DUPLICATION_RATE', 'READS_TOTAL_ALIGNED_PCT', 'SNP_FETAL_PCT']
-early_prod_run = pd.read_csv(analytical_data / 'poly_sample_early_prod.tsv', sep='\t', header=0)
-late_prod_run  = pd.read_csv(analytical_data /'poly_sample_late_prod.tsv', sep='\t', header=0)
-recent_prod_run = pd.read_csv(analytical_data / 'poly_sample_02042020.tsv', sep='\t', header=0)
+early_prod_run  = pd.read_csv(analytical_data / 'poly_sample_early_prod.tsv', sep='\t', header=0)
+late_prod_run   = pd.read_csv(analytical_data /'poly_sample_late_prod.tsv', sep='\t', header=0)
+feb_prod_run = pd.read_csv(analytical_data / 'poly_sample_02042020.tsv', sep='\t', header=0)
+march_prod_run  = pd.read_csv(analytical_data / 'poly_sample_03132020.tsv', sep='\t', header=0)
+
+recent_prod_run = pd.concat([feb_prod_run, march_prod_run], axis=0)
 
 # change columns for the latest data
 recent_prod_run['PROPS_ID'] = recent_prod_run['SAMPLE_ID']
@@ -71,7 +74,7 @@ columns_mod_file  = ['SAMPLE_ID', 'GOF', 'READ_COUNT', 'CHR13_CALL', 'CHR18_CALL
 model31_calls = pd.concat([raw_model31_calls[columns_mod_file], recent_prod_run[columns_mod_file]], axis=0).drop_duplicates(subset='SAMPLE_ID', keep='first')
 
 # metadata files
-version = 'v04'
+version = 'v06'
 p_run_data   = pd.read_csv(meta_data / f'progenity_run_data_{version}.tsv', sep='\t', header=0)
 a_run_data   = pd.read_csv(meta_data / f'avero_run_data_{version}.tsv', sep='\t', header=0)
 run_metadata = pd.concat([p_run_data, a_run_data], axis=0)
@@ -96,6 +99,7 @@ sample_metadata['State'] = sample_metadata.apply(
 p_reported = pd.read_csv(meta_data / f'progenity_reported_data_{version}.tsv', sep='\t', header=0)
 a_reported = pd.read_csv(meta_data / f'avero_reported_data_{version}.tsv', sep='\t', header=0)
 reported   = pd.concat([p_reported, a_reported], axis=0)
+reported = reported.loc[reported['OUTCOMENAME'] != 'Chromosome XY - Twin'] #because we don't care about twin calls
 
 exclude_samples = pd.read_csv(other_data / 'exclude_samples.txt', sep='\t', header=0)
 outcome_data    = pd.read_csv(other_data / 'outcomes.txt', sep='\t', header=0, dtype={'SID': object})
@@ -150,11 +154,11 @@ for c in chr:
 
 # create calls dataframe
 aneuploid_calls = aneuploid.groupby('ID')['RESULT'].apply(', '.join) #join calls if sample has more than one call
-euploid_id      = [sid for sid in unique_sample_ids['ID'] if sid not in aneuploid['ID'].tolist()]
+
+euploid_id      = [sid for sid in unique_sample_ids['ID'] if sid not in aneuploid['ID'].tolist()] #everything not in the above list but in the reported dataframe is euploid
 euploid_calls   = pd.Series('FETAL EUPLOIDY', index=euploid_id)
 calls = euploid_calls.append(aneuploid_calls)
 
-#join calls to manifest
 tmp2['join_helper2'] = tmp2['FLOWCELL'] + '_' + tmp2['PROPS_ID']
 tmp3 = tmp2.join(calls.rename('REPORTED_PLOIDY'), sort=False, how='left', on='join_helper2')
 
@@ -216,8 +220,10 @@ for c in chr:
     outlier_sid += outlier['SAMPLE_ID'].tolist()
 
 print(f'Outliers: {len(outlier_sid)}')
+tmp7['IS_OUTLIER'] = False
+tmp7.loc[tmp7['SAMPLE_ID'].isin(outlier_sid), 'IS_OUTLIER'] = True
 
-tmp7['KNOWN_PLOIDY'].loc[tmp7['SAMPLE_ID'].isin(outlier_sid)] = ''
+#tmp7['KNOWN_PLOIDY'].loc[tmp7['SAMPLE_ID'].isin(outlier_sid)] = ''
 
 # dealing with controls
 control_info = control_list(tmp7)
@@ -231,7 +237,7 @@ for i, row in control_info.iterrows():
 
 # finally some clean up
 tmp7.drop(labels=['join_helper2', 'join_helper', 'SampleId', 'SID', 'RESULT', 'SAMPLEID_x', 'SAMPLEID_y'], axis=1, inplace=True)
-tmp7.rename(columns={'OrderId': 'ORDER_ID', 'State': 'STATE', 'PostalCode': 'POSTAL_CODE'}, inplace=True)
+tmp7.rename(columns={'OrderId': 'ORDER_ID', 'State': 'STATE', 'PostalCode': 'POSTAL_CODE', 'CONTROL_SAMPLE': 'SAMPLE_TYPE', 'SAMPLETYPE': 'DNA_SOURCE'}, inplace=True)
 tmp7.loc[tmp7['EXTRACTIONINSTRUMENTNAME'] == 'L000461', 'EXTRACTIONINSTRUMENTNAME'] = 'L00461'
 tmp7['BMIATTIMEOFDRAW'].replace(0,np.nan, inplace=True)
 tmp7['BMIATTIMEOFDRAW'].replace(-1,np.nan, inplace=True)
@@ -239,4 +245,26 @@ tmp7.loc[(tmp7['PROPS_ID'].str[0] != 'A') & (tmp7['COMPANY'].isnull()), 'COMPANY
 tmp7.loc[(tmp7['PROPS_ID'].str[0] == 'A') & (tmp7['COMPANY'].isnull()), 'COMPANY'] = 'Avero'
 tmp7.rename(columns={'PROPS_ID': 'INDIVIDUAL_ID'}, inplace=True)
 
-tmp7.to_csv('manifest.tsv', sep='\t', index=None)
+failed = tmp7.loc[tmp7['REPORTED_PLOIDY'].str.contains('Fail') | tmp7['REPORTED_PLOIDY'].str.contains('FAIL')]
+failed['IS_FAIL'] = 'TRUE'
+
+not_failed_reported = tmp7.loc[~(tmp7['REPORTED_PLOIDY'].str.contains('Fail') | tmp7['REPORTED_PLOIDY'].str.contains('FAIL')) & (tmp7['REPORTED_PLOIDY'].isnull() == False)]
+not_failed_reported['IS_FAIL'] = 'FALSE'
+
+not_failed_or_reported = tmp7.loc[~(tmp7['REPORTED_PLOIDY'].str.contains('Fail') | tmp7['REPORTED_PLOIDY'].str.contains('FAIL')) & (tmp7['REPORTED_PLOIDY'].isnull() == True)]
+not_failed_or_reported['IS_FAIL'] = np.nan
+
+failed['REPORTED_PLOIDY'] = failed['REPORTED_PLOIDY'].str.split(',').str[0]
+tmp8 = pd.concat([failed, not_failed_reported, not_failed_or_reported], axis=0, sort=False)
+
+failed = tmp8.loc[tmp8['KNOWN_PLOIDY'].str.contains('Fail') | tmp8['KNOWN_PLOIDY'].str.contains('FAIL')]
+not_failed = tmp8.loc[~(tmp8['KNOWN_PLOIDY'].str.contains('Fail') | tmp8['KNOWN_PLOIDY'].str.contains('FAIL'))]
+failed['KNOWN_PLOIDY'] = failed['KNOWN_PLOIDY'].str.split(',').str[0]
+tmp9 = pd.concat([failed, not_failed], axis=0, sort=False)
+
+# fixing weird user entry
+tmp9.loc[tmp9['PLATESETUPUSERNAME'] == 'matthew.o&#39;hara', 'PLATESETUPUSERNAME']      = 'matthew.ohara'
+tmp9.loc[tmp9['TARGETEDCAPTUREUSERNAME'] == 'matthew.o&#39;hara', 'TARGETEDCAPTUREUSERNAME'] = 'matthew.ohara'
+tmp9.loc[tmp9['INDEXINGPCRUSERNAME'] == 'matthew.o&#39;hara', 'INDEXINGPCRUSERNAME']     = 'matthew.ohara'
+
+tmp9.to_csv('manifest_updated.tsv', sep='\t', index=None)
