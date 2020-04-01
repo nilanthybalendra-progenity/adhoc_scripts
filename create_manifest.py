@@ -61,15 +61,15 @@ recent_prod_run['PROPS_ID'] = recent_prod_run['SAMPLE_ID']
 recent_prod_run.drop(labels=['SAMPLE_ID'], axis=1, inplace=True)
 recent_prod_run['SAMPLE_ID'] = recent_prod_run['BFX_RESULT_ID']
 
-# concat together
+# concat together run tsv
 prod_run_data  = pd.concat([early_prod_run[columns_run_file], late_prod_run[columns_run_file], recent_prod_run[columns_run_file]], axis=0)
 prod_run_data.drop_duplicates(subset='SAMPLE_ID', keep='first', inplace=True)
 
-# read in model output files
+# read in model output files (need to use a different one for early prod as a different model was used, for the rest, the tsvs can be used)
 raw_model31_calls = pd.read_csv(analytical_data / 'calls_model3.1.tsv', sep='\t', header=0)
 columns_mod_file  = ['SAMPLE_ID', 'GOF', 'READ_COUNT', 'CHR13_CALL', 'CHR18_CALL', 'CHR21_CALL',
                      'CHRXY_CALL', 'CHR13_PLOIDY', 'CHR18_PLOIDY', 'CHR21_PLOIDY', 'CHRX_PLOIDY', 'CHRY_PLOIDY',
-                     'CHR13_TVALUE', 'CHR18_TVALUE', 'CHR21_TVALUE', 'CHRX_TVALUE', 'CHRY_TVALUE', 'CHRY_FETAL_PCT']
+                     'CHR13_TVALUE', 'CHR18_TVALUE', 'CHR21_TVALUE', 'CHRX_TVALUE', 'CHRY_TVALUE', 'CHR13_FETAL_PCT', 'CHR18_FETAL_PCT','CHR21_FETAL_PCT', 'CHRY_FETAL_PCT']
 
 model31_calls = pd.concat([raw_model31_calls[columns_mod_file], recent_prod_run[columns_mod_file]], axis=0).drop_duplicates(subset='SAMPLE_ID', keep='first')
 
