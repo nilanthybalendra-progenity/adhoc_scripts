@@ -40,10 +40,11 @@ def control_list(data):
         ['PROPS_ID', 'KNOWN_PLOIDY', 'HOST_SEX', 'FETAL_SEX', 'CONTROL_SAMPLE']].drop_duplicates(subset='PROPS_ID', keep='first')
 
 # paths where data files are
-main_data_dir =   Path('/mnt/bfx_projects/nipt_lifecycle/data/wip/metadata')
+main_data_dir =   Path('/mnt/bfx_projects/nipt_lifecycle/data/metadata')
 
 meta_data =       main_data_dir / 'from_BI'
 analytical_data = main_data_dir / 'analytical_data'
+clinical_data   = main_data_dir / 'from_clinical'
 other_data =      main_data_dir / 'other_data'
 
 # read in analytical output files
@@ -54,7 +55,10 @@ late_prod_run   = pd.read_csv(analytical_data /'poly_sample_late_prod.tsv', sep=
 feb_prod_run = pd.read_csv(analytical_data / 'poly_sample_02042020.tsv', sep='\t', header=0)
 march_prod_run  = pd.read_csv(analytical_data / 'poly_sample_03132020.tsv', sep='\t', header=0)
 
-recent_prod_run = pd.concat([feb_prod_run, march_prod_run], axis=0)
+avero_validation = pd.read_csv(analytical_data / 'avero_validation_samples.tsv', sep='\t', header=0)
+avero_validation_fc = ['HJVYFDMXX', 'HKJMNDMXX', 'HKJYCDMXX', 'HKJYMDMXX']
+
+recent_prod_run = pd.concat([feb_prod_run, march_prod_run, avero_validation], axis=0)
 
 # change columns for the latest data
 recent_prod_run['PROPS_ID'] = recent_prod_run['SAMPLE_ID']
@@ -74,7 +78,7 @@ columns_mod_file  = ['SAMPLE_ID', 'GOF', 'READ_COUNT', 'CHR13_CALL', 'CHR18_CALL
 model31_calls = pd.concat([raw_model31_calls[columns_mod_file], recent_prod_run[columns_mod_file]], axis=0).drop_duplicates(subset='SAMPLE_ID', keep='first')
 
 # metadata files
-version = 'v06'
+version = 'v07'
 p_run_data   = pd.read_csv(meta_data / f'progenity_run_data_{version}.tsv', sep='\t', header=0)
 a_run_data   = pd.read_csv(meta_data / f'avero_run_data_{version}.tsv', sep='\t', header=0)
 run_metadata = pd.concat([p_run_data, a_run_data], axis=0)
@@ -101,8 +105,9 @@ a_reported = pd.read_csv(meta_data / f'avero_reported_data_{version}.tsv', sep='
 reported   = pd.concat([p_reported, a_reported], axis=0)
 reported = reported.loc[reported['OUTCOMENAME'] != 'Chromosome XY - Twin'] #because we don't care about twin calls
 
-exclude_samples = pd.read_csv(other_data / 'exclude_samples.txt', sep='\t', header=0)
-outcome_data    = pd.read_csv(other_data / 'outcomes.txt', sep='\t', header=0, dtype={'SID': object})
+exclude_samples  = pd.read_csv(other_data / 'exclude_samples.txt', sep='\t', header=0)
+outcome_data     = pd.read_csv(other_data / 'outcomes.txt', sep='\t', header=0, dtype={'SID': object})
+validation_truth = pd.read_csv(clinical_data / 'avero_validation_truth.tsv', sep='\t', header=0)
 
 #aggregate plate and sample counts per flowcell and add to prod data
 plate_count = prod_run_data.groupby(['FLOWCELL'])['PLATE'].nunique()
@@ -267,4 +272,18 @@ tmp9.loc[tmp9['PLATESETUPUSERNAME'] == 'matthew.o&#39;hara', 'PLATESETUPUSERNAME
 tmp9.loc[tmp9['TARGETEDCAPTUREUSERNAME'] == 'matthew.o&#39;hara', 'TARGETEDCAPTUREUSERNAME'] = 'matthew.ohara'
 tmp9.loc[tmp9['INDEXINGPCRUSERNAME'] == 'matthew.o&#39;hara', 'INDEXINGPCRUSERNAME']     = 'matthew.ohara'
 
-tmp9.to_csv('manifest_updated.tsv', sep='\t', index=None)
+# add truth info for validation flowcells
+tmp9['SOURCE'] = 'PRODUCTION'
+tmp9.loc[tmp9['FLOWCELL'].isin(avero_validation_fc), 'SOURCE'] = 'VALIDATION'
+
+clinical   = tmp9.loc[tmp9['SOURCE'] == 'PRODUCTION']
+validation = tmp9.loc[tmp9['SOURCE'] == 'VALIDATION']
+validation.drop(labels=['INDIVIDUAL_ID', 'FLOWCELL', 'PREGNANCYTYPE', 'FETAL_SEX', 'KNOWN_PLOIDY'], axis=1, inplace=True)
+
+# drop remnants
+validation = validation.loc[validation['SAMPLE_ID'].isin(validation_truth['SAMPLE_ID'])]
+val_truth = validation.set_index('SAMPLE_ID').join(validation_truth.set_index('SAMPLE_ID'), sort=False, how='left', on='SAMPLE_ID')
+
+full = pd.concat([clinical, val_truth], axis=0, sort=False)
+
+full.to_csv('manifest_v07.tsv', sep='\t', index=None)
