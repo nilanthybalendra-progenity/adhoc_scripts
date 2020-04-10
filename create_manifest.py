@@ -282,8 +282,8 @@ validation.drop(labels=['INDIVIDUAL_ID', 'FLOWCELL', 'PREGNANCYTYPE', 'FETAL_SEX
 
 # drop remnants
 validation = validation.loc[validation['SAMPLE_ID'].isin(validation_truth['SAMPLE_ID'])]
-tmp10 = validation.set_index('SAMPLE_ID').join(validation_truth.set_index('SAMPLE_ID'), sort=False, how='left', on='SAMPLE_ID')
+val_truth = validation.set_index('SAMPLE_ID').join(validation_truth.set_index('SAMPLE_ID'), sort=False, how='left', on='SAMPLE_ID')
 
-full = pd.concat([clinical, validation], axis=0, sort=False)
+full = pd.concat([clinical, val_truth], axis=0, sort=False)
 
 full.to_csv('manifest_v07.tsv', sep='\t', index=None)
