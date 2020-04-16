@@ -282,7 +282,7 @@ tmp9.loc[tmp9['INDEXINGPCRUSERNAME'] == 'matthew.o&#39;hara', 'INDEXINGPCRUSERNA
 
 # add in prod run tsv data
 
-tmp10 = tmp9.merge(prod_run_data[['FCID', 'RUN_PHIX_ALIGN_PCT']], how='left', left_on='FLOWCELL', right_on='FCID')
+tmp10 = tmp9.merge(prod_run_data[['FCID', 'RUN_PHIX_ALIGN_PCT', 'YIELD']], how='left', left_on='FLOWCELL', right_on='FCID')
 
 # add truth info for validation flowcells
 tmp10['SOURCE'] = 'PRODUCTION'
