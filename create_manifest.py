@@ -50,24 +50,32 @@ other_data =      main_data_dir / 'other_data'
 # read in analytical output files
 columns_run_file = ['SAMPLE_ID', 'PROPS_ID', 'FLOWCELL', 'PLATE', 'WELL', 'CONTROL_SAMPLE', 'ANALYSIS_DATETIME',
                     'DUPLICATION_RATE', 'READS_TOTAL_ALIGNED_PCT', 'SNP_FETAL_PCT']
-early_prod_run  = pd.read_csv(analytical_data / 'poly_sample_early_prod.tsv', sep='\t', header=0)
-late_prod_run   = pd.read_csv(analytical_data /'poly_sample_late_prod.tsv', sep='\t', header=0)
-feb_prod_run = pd.read_csv(analytical_data / 'poly_sample_02042020.tsv', sep='\t', header=0)
-march_prod_run  = pd.read_csv(analytical_data / 'poly_sample_03132020.tsv', sep='\t', header=0)
+
+#samples.tsv
+early_prod_sample  = pd.read_csv(analytical_data / 'poly_sample_early_prod.tsv', sep='\t', header=0)
+late_prod_sample   = pd.read_csv(analytical_data /'poly_sample_late_prod.tsv', sep='\t', header=0)
+feb_prod_sample = pd.read_csv(analytical_data / 'poly_sample_02042020.tsv', sep='\t', header=0)
+march_prod_sample  = pd.read_csv(analytical_data / 'poly_sample_03132020.tsv', sep='\t', header=0)
 
 avero_validation = pd.read_csv(analytical_data / 'avero_validation_samples.tsv', sep='\t', header=0)
 avero_validation_fc = ['HJVYFDMXX', 'HKJMNDMXX', 'HKJYCDMXX', 'HKJYMDMXX']
 
-recent_prod_run = pd.concat([feb_prod_run, march_prod_run, avero_validation], axis=0)
+recent_prod_sample = pd.concat([feb_prod_sample, march_prod_sample, avero_validation], axis=0)
 
 # change columns for the latest data
-recent_prod_run['PROPS_ID'] = recent_prod_run['SAMPLE_ID']
-recent_prod_run.drop(labels=['SAMPLE_ID'], axis=1, inplace=True)
-recent_prod_run['SAMPLE_ID'] = recent_prod_run['BFX_RESULT_ID']
+recent_prod_sample['PROPS_ID'] = recent_prod_sample['SAMPLE_ID']
+recent_prod_sample.drop(labels=['SAMPLE_ID'], axis=1, inplace=True)
+recent_prod_sample['SAMPLE_ID'] = recent_prod_sample['BFX_RESULT_ID']
 
-# concat together run tsv
-prod_run_data  = pd.concat([early_prod_run[columns_run_file], late_prod_run[columns_run_file], recent_prod_run[columns_run_file]], axis=0)
-prod_run_data.drop_duplicates(subset='SAMPLE_ID', keep='first', inplace=True)
+# concat together sample tsv
+prod_sample_data  = pd.concat([early_prod_sample[columns_run_file], late_prod_sample[columns_run_file], recent_prod_sample[columns_run_file]], axis=0)
+prod_sample_data.drop_duplicates(subset='SAMPLE_ID', keep='first', inplace=True)
+
+# read in and cat run tsv
+early_prod_run = pd.read_csv(analytical_data / 'poly_run_early_prod.tsv', sep='\t', header=0)
+recent_prod_run = pd.read_csv(analytical_data / 'poly_run_recent_prod.tsv', sep='\t', header=0)
+prod_run_data = pd.concat([early_prod_run, recent_prod_run], axis=0)
+prod_run_data.drop_duplicates(subset='FCID', keep='first', inplace=True)
 
 # read in model output files (need to use a different one for early prod as a different model was used, for the rest, the tsvs can be used)
 raw_model31_calls = pd.read_csv(analytical_data / 'calls_model3.1.tsv', sep='\t', header=0)
@@ -75,7 +83,7 @@ columns_mod_file  = ['SAMPLE_ID', 'GOF', 'READ_COUNT', 'CHR13_CALL', 'CHR18_CALL
                      'CHRXY_CALL', 'CHR13_PLOIDY', 'CHR18_PLOIDY', 'CHR21_PLOIDY', 'CHRX_PLOIDY', 'CHRY_PLOIDY',
                      'CHR13_TVALUE', 'CHR18_TVALUE', 'CHR21_TVALUE', 'CHRX_TVALUE', 'CHRY_TVALUE', 'CHR13_FETAL_PCT', 'CHR18_FETAL_PCT','CHR21_FETAL_PCT', 'CHRY_FETAL_PCT']
 
-model31_calls = pd.concat([raw_model31_calls[columns_mod_file], recent_prod_run[columns_mod_file]], axis=0).drop_duplicates(subset='SAMPLE_ID', keep='first')
+model31_calls = pd.concat([raw_model31_calls[columns_mod_file], recent_prod_sample[columns_mod_file]], axis=0).drop_duplicates(subset='SAMPLE_ID', keep='first')
 
 # metadata files
 version = 'v07'
@@ -110,28 +118,28 @@ outcome_data     = pd.read_csv(other_data / 'outcomes.txt', sep='\t', header=0, 
 validation_truth = pd.read_csv(clinical_data / 'avero_validation_truth.tsv', sep='\t', header=0)
 
 #aggregate plate and sample counts per flowcell and add to prod data
-plate_count = prod_run_data.groupby(['FLOWCELL'])['PLATE'].nunique()
+plate_count = prod_sample_data.groupby(['FLOWCELL'])['PLATE'].nunique()
 plate_count.rename('PLATE_COUNT',inplace=True)
-prod_run_data = prod_run_data.merge(plate_count, how='left', left_on='FLOWCELL', right_on='FLOWCELL')
+prod_sample_data = prod_sample_data.merge(plate_count, how='left', left_on='FLOWCELL', right_on='FLOWCELL')
 
-sample_count = prod_run_data.groupby(['FLOWCELL'])['SAMPLE_ID'].nunique()
+sample_count = prod_sample_data.groupby(['FLOWCELL'])['SAMPLE_ID'].nunique()
 sample_count.rename('SAMPLE_COUNT',inplace=True)
-prod_run_data = prod_run_data.merge(sample_count, how='left', left_on='FLOWCELL', right_on='FLOWCELL')
+prod_sample_data = prod_sample_data.merge(sample_count, how='left', left_on='FLOWCELL', right_on='FLOWCELL')
 
 # dropping some plates and samples identified by Natalie (see exclude.txt)
 exclude_plates = ['PPU70017-1A', 'PPU70018-1B', 'PPU70020-1D']
-prod_run_data = prod_run_data.loc[~prod_run_data['PLATE'].isin(exclude_plates)]
-prod_run_data = prod_run_data.loc[~prod_run_data['SAMPLE_ID'].isin(exclude_samples['exclude'].to_list())]
+prod_sample_data = prod_sample_data.loc[~prod_sample_data['PLATE'].isin(exclude_plates)]
+prod_sample_data = prod_sample_data.loc[~prod_sample_data['SAMPLE_ID'].isin(exclude_samples['exclude'].to_list())]
 
 # dropping some failed flowcells
 failed_fc = ['HMLGHDMXX', 'HMK27DMXX', 'HM3F2DMXX', 'HLV2MDMXX', 'HLV7LDMXX', 'HLVW7DMXX']
-prod_run_data = prod_run_data.loc[~prod_run_data['FLOWCELL'].isin(failed_fc)]
+prod_sample_data = prod_sample_data.loc[~prod_sample_data['FLOWCELL'].isin(failed_fc)]
 
 # this is a flowcell that was run twice using the same fcid (before and after nipt 2.0 launch). Dropping the first run.
-prod_run_data = prod_run_data.loc[~(prod_run_data['FLOWCELL'].isin(['HKF7TDMXX']) & prod_run_data['ANALYSIS_DATETIME'].str.contains('2019-09-08'))]
+prod_sample_data = prod_sample_data.loc[~(prod_sample_data['FLOWCELL'].isin(['HKF7TDMXX']) & prod_sample_data['ANALYSIS_DATETIME'].str.contains('2019-09-08'))]
 
 # join aggregated Run_Project_Poly_9002_run.tsv with the model calls
-tmp = prod_run_data.join(model31_calls.set_index('SAMPLE_ID'), sort=False, how='left', on='SAMPLE_ID')
+tmp = prod_sample_data.join(model31_calls.set_index('SAMPLE_ID'), sort=False, how='left', on='SAMPLE_ID')
 
 #join in run metadata for progenity and avero
 tmp['join_helper'] = tmp['FLOWCELL'] + '_' + tmp['PLATE'] + '_' + tmp['WELL'] + tmp['PROPS_ID']
@@ -272,12 +280,16 @@ tmp9.loc[tmp9['PLATESETUPUSERNAME'] == 'matthew.o&#39;hara', 'PLATESETUPUSERNAME
 tmp9.loc[tmp9['TARGETEDCAPTUREUSERNAME'] == 'matthew.o&#39;hara', 'TARGETEDCAPTUREUSERNAME'] = 'matthew.ohara'
 tmp9.loc[tmp9['INDEXINGPCRUSERNAME'] == 'matthew.o&#39;hara', 'INDEXINGPCRUSERNAME']     = 'matthew.ohara'
 
-# add truth info for validation flowcells
-tmp9['SOURCE'] = 'PRODUCTION'
-tmp9.loc[tmp9['FLOWCELL'].isin(avero_validation_fc), 'SOURCE'] = 'VALIDATION'
+# add in prod run tsv data
 
-clinical   = tmp9.loc[tmp9['SOURCE'] == 'PRODUCTION']
-validation = tmp9.loc[tmp9['SOURCE'] == 'VALIDATION']
+tmp10 = tmp9.merge(prod_run_data[['FCID', 'RUN_PHIX_ALIGN_PCT', 'YIELD']], how='left', left_on='FLOWCELL', right_on='FCID')
+
+# add truth info for validation flowcells
+tmp10['SOURCE'] = 'PRODUCTION'
+tmp10.loc[tmp10['FLOWCELL'].isin(avero_validation_fc), 'SOURCE'] = 'VALIDATION'
+
+clinical   = tmp10.loc[tmp10['SOURCE'] == 'PRODUCTION']
+validation = tmp10.loc[tmp10['SOURCE'] == 'VALIDATION']
 validation.drop(labels=['INDIVIDUAL_ID', 'FLOWCELL', 'PREGNANCYTYPE', 'FETAL_SEX', 'KNOWN_PLOIDY'], axis=1, inplace=True)
 
 # drop remnants
@@ -286,4 +298,4 @@ val_truth = validation.set_index('SAMPLE_ID').join(validation_truth.set_index('S
 val_truth.reset_index(inplace=True)
 full = pd.concat([clinical, val_truth], axis=0, sort=False)
 
-full.to_csv('manifest_v07.tsv', sep='\t', index=None)
+full.to_csv('manifest_branch.tsv', sep='\t', index=None)
