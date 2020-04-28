@@ -53,14 +53,12 @@ columns_run_file = ['SAMPLE_ID', 'PROPS_ID', 'FLOWCELL', 'PLATE', 'WELL', 'CONTR
 
 #samples.tsv
 early_prod_sample  = pd.read_csv(analytical_data / 'poly_sample_early_prod.tsv', sep='\t', header=0)
-late_prod_sample   = pd.read_csv(analytical_data /'poly_sample_late_prod.tsv', sep='\t', header=0)
-feb_prod_sample = pd.read_csv(analytical_data / 'poly_sample_02042020.tsv', sep='\t', header=0)
-march_prod_sample  = pd.read_csv(analytical_data / 'poly_sample_03132020.tsv', sep='\t', header=0)
+late_prod_sample   = pd.read_csv(analytical_data /'poly_sample_recent.tsv', sep='\t', header=0)
 
 avero_validation = pd.read_csv(analytical_data / 'avero_validation_samples.tsv', sep='\t', header=0)
 avero_validation_fc = ['HJVYFDMXX', 'HKJMNDMXX', 'HKJYCDMXX', 'HKJYMDMXX']
 
-recent_prod_sample = pd.concat([feb_prod_sample, march_prod_sample, avero_validation], axis=0)
+recent_prod_sample = pd.concat([late_prod_sample, avero_validation], axis=0)
 
 # change columns for the latest data
 recent_prod_sample['PROPS_ID'] = recent_prod_sample['SAMPLE_ID']
@@ -68,7 +66,7 @@ recent_prod_sample.drop(labels=['SAMPLE_ID'], axis=1, inplace=True)
 recent_prod_sample['SAMPLE_ID'] = recent_prod_sample['BFX_RESULT_ID']
 
 # concat together sample tsv
-prod_sample_data  = pd.concat([early_prod_sample[columns_run_file], late_prod_sample[columns_run_file], recent_prod_sample[columns_run_file]], axis=0)
+prod_sample_data  = pd.concat([early_prod_sample[columns_run_file], recent_prod_sample[columns_run_file]], axis=0)
 prod_sample_data.drop_duplicates(subset='SAMPLE_ID', keep='first', inplace=True)
 
 # read in and cat run tsv
@@ -77,13 +75,22 @@ recent_prod_run = pd.read_csv(analytical_data / 'poly_run_recent_prod.tsv', sep=
 prod_run_data = pd.concat([early_prod_run, recent_prod_run], axis=0)
 prod_run_data.drop_duplicates(subset='FCID', keep='first', inplace=True)
 
-# read in model output files (need to use a different one for early prod as a different model was used, for the rest, the tsvs can be used)
-raw_model31_calls = pd.read_csv(analytical_data / 'calls_model3.1.tsv', sep='\t', header=0)
+# read in model info (need to use a different one for pre 2.0 as a different model was used, for the rest, the tsvs can be used)
+model31_calls_for_pre_2 = pd.read_csv(analytical_data / 'calls_model3.1.tsv', sep='\t', header=0)
 columns_mod_file  = ['SAMPLE_ID', 'GOF', 'READ_COUNT', 'CHR13_CALL', 'CHR18_CALL', 'CHR21_CALL',
                      'CHRXY_CALL', 'CHR13_PLOIDY', 'CHR18_PLOIDY', 'CHR21_PLOIDY', 'CHRX_PLOIDY', 'CHRY_PLOIDY',
                      'CHR13_TVALUE', 'CHR18_TVALUE', 'CHR21_TVALUE', 'CHRX_TVALUE', 'CHRY_TVALUE', 'CHR13_FETAL_PCT', 'CHR18_FETAL_PCT','CHR21_FETAL_PCT', 'CHRY_FETAL_PCT']
 
-model31_calls = pd.concat([raw_model31_calls[columns_mod_file], recent_prod_sample[columns_mod_file]], axis=0).drop_duplicates(subset='SAMPLE_ID', keep='first')
+model31_calls = pd.concat([model31_calls_for_pre_2[columns_mod_file], recent_prod_sample[columns_mod_file]], axis=0).drop_duplicates(subset='SAMPLE_ID', keep='first')
+
+raw_model_cols = ['SAMPLE_ID', 'CHR13_TVALUE', 'CHR18_TVALUE', 'CHR21_TVALUE', 'CHRX_TVALUE', 'CHRY_TVALUE']
+
+raw_model_calls = pd.concat([early_prod_sample[raw_model_cols], recent_prod_sample[raw_model_cols]], axis=0).drop_duplicates(subset='SAMPLE_ID', keep='first')
+raw_model_calls.rename(columns={'CHR13_TVALUE': 'CHR13_TVALUE_PROD',
+                                'CHR18_TVALUE': 'CHR18_TVALUE_PROD',
+                                'CHR21_TVALUE': 'CHR21_TVALUE_PROD',
+                                'CHRX_TVALUE': 'CHRX_TVALUE_PROD',
+                                'CHRY_TVALUE': 'CHRY_TVALUE_PROD'}, inplace=True)
 
 # metadata files
 version = 'v07'
@@ -132,14 +139,15 @@ prod_sample_data = prod_sample_data.loc[~prod_sample_data['PLATE'].isin(exclude_
 prod_sample_data = prod_sample_data.loc[~prod_sample_data['SAMPLE_ID'].isin(exclude_samples['exclude'].to_list())]
 
 # dropping some failed flowcells
-failed_fc = ['HMLGHDMXX', 'HMK27DMXX', 'HM3F2DMXX', 'HLV2MDMXX', 'HLV7LDMXX', 'HLVW7DMXX']
+failed_fc = ['HMLGHDMXX', 'HMK27DMXX', 'HM3F2DMXX', 'HLV2MDMXX', 'HLV7LDMXX', 'HLVW7DMXX', 'HN3KGDMXX']
 prod_sample_data = prod_sample_data.loc[~prod_sample_data['FLOWCELL'].isin(failed_fc)]
 
 # this is a flowcell that was run twice using the same fcid (before and after nipt 2.0 launch). Dropping the first run.
 prod_sample_data = prod_sample_data.loc[~(prod_sample_data['FLOWCELL'].isin(['HKF7TDMXX']) & prod_sample_data['ANALYSIS_DATETIME'].str.contains('2019-09-08'))]
 
-# join aggregated Run_Project_Poly_9002_run.tsv with the model calls
+# join aggregated samples.tsv with the model calls
 tmp = prod_sample_data.join(model31_calls.set_index('SAMPLE_ID'), sort=False, how='left', on='SAMPLE_ID')
+tmp = tmp.join(raw_model_calls.set_index('SAMPLE_ID'), sort=False, how='left', on='SAMPLE_ID')
 
 #join in run metadata for progenity and avero
 tmp['join_helper'] = tmp['FLOWCELL'] + '_' + tmp['PLATE'] + '_' + tmp['WELL'] + tmp['PROPS_ID']
@@ -298,4 +306,4 @@ val_truth = validation.set_index('SAMPLE_ID').join(validation_truth.set_index('S
 val_truth.reset_index(inplace=True)
 full = pd.concat([clinical, val_truth], axis=0, sort=False)
 
-full.to_csv('manifest_branch.tsv', sep='\t', index=None)
+full.to_csv('manifest_branch2.tsv', sep='\t', index=None)
