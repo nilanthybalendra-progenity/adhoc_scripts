@@ -122,6 +122,7 @@ reported = reported.loc[reported['OUTCOMENAME'] != 'Chromosome XY - Twin'] #beca
 
 exclude_samples  = pd.read_csv(other_data / 'exclude_samples.txt', sep='\t', header=0)
 outcome_data     = pd.read_csv(other_data / 'outcomes.txt', sep='\t', header=0, dtype={'SID': object})
+ex_well_map      = pd.read_csv(other_data / 'NIPT_well_mapping.tsv', sep='\t', header=0)
 validation_truth = pd.read_csv(clinical_data / 'avero_validation_truth.tsv', sep='\t', header=0)
 
 #aggregate plate and sample counts per flowcell and add to prod data
@@ -157,6 +158,9 @@ tmp = tmp.join(run_metadata.set_index('join_helper'), sort=False, how='left', on
 
 # merge in sample metadata (demographic data) for progenity and avero
 tmp2 = tmp.merge(sample_metadata, how='left', left_on='PROPS_ID', right_on='SAMPLEID')
+
+#add in extraction well data
+tmp2 = tmp2.merge(ex_well_map[['SAMPLESHEET_WELL', 'EXTRACTION_PLATE_WELL']], how='left', left_on='WELL', right_on='SAMPLESHEET_WELL')
 
 # putting reported data in a friendly format
 
@@ -257,7 +261,7 @@ for i, row in control_info.iterrows():
     tmp7.loc[cond, 'KNOWN_PLOIDY']   = row['KNOWN_PLOIDY']
 
 # finally some clean up
-tmp7.drop(labels=['join_helper2', 'join_helper', 'SampleId', 'SID', 'RESULT', 'SAMPLEID_x', 'SAMPLEID_y'], axis=1, inplace=True)
+tmp7.drop(labels=['join_helper2', 'join_helper', 'SampleId', 'SID', 'RESULT', 'SAMPLEID_x', 'SAMPLEID_y', 'SAMPLESHEET_WELL'], axis=1, inplace=True)
 tmp7.rename(columns={'OrderId': 'ORDER_ID', 'State': 'STATE', 'PostalCode': 'POSTAL_CODE', 'CONTROL_SAMPLE': 'SAMPLE_TYPE', 'SAMPLETYPE': 'DNA_SOURCE'}, inplace=True)
 tmp7.loc[tmp7['EXTRACTIONINSTRUMENTNAME'] == 'L000461', 'EXTRACTIONINSTRUMENTNAME'] = 'L00461'
 tmp7['BMIATTIMEOFDRAW'].replace(0,np.nan, inplace=True)
@@ -306,4 +310,4 @@ val_truth = validation.set_index('SAMPLE_ID').join(validation_truth.set_index('S
 val_truth.reset_index(inplace=True)
 full = pd.concat([clinical, val_truth], axis=0, sort=False)
 
-full.to_csv('manifest_branch2.tsv', sep='\t', index=None)
+full.to_csv('manifest_branch.tsv', sep='\t', index=None)
