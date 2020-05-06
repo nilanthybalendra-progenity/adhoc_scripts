@@ -100,10 +100,18 @@ def nipt_null_histogram(call_file_path, title, output_file, plot_x=False, by_sex
         if plot_x:
             sns.kdeplot(data.loc[data['CHRXY_CALL'] == 'FETAL EUPLOIDY, FEMALE', 'CHRX_TVALUE'], color='orange',
                         label='CHRX T-Value')
+            print(f'CHRX_TVALUE: {data.loc[data["CHRXY_CALL"] == "FETAL EUPLOIDY, FEMALE", "CHRX_TVALUE"].mean()}')
 
         plt.xlabel('T-Value')
         plt.title(title)
+        plt.vlines(0,min(norm),0.42, colors='k', linestyles='dotted')
+        plt.ylim(min(norm), 0.42)
         plt.legend(frameon=False)
+
+        print(f'CHR13_TVALUE: {data.loc[data["CHR13_CALL"] == "FETAL EUPLOIDY", "CHR13_TVALUE"].mean()}')
+        print(f'CHR18_TVALUE: {data.loc[data["CHR18_CALL"] == "FETAL EUPLOIDY", "CHR18_TVALUE"].mean()}')
+        print(f'CHR21_TVALUE: {data.loc[data["CHR21_CALL"] == "FETAL EUPLOIDY", "CHR21_TVALUE"].mean()}')
+
 
     else:
         fig, [ax1, ax2] = plt.subplots(2, 1, sharex=True)
