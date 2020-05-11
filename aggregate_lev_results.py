@@ -214,7 +214,9 @@ def create_cnv_results(calls):
     other = calls[~calls['REGION'].isin(['SMN1','SMN2','HBA'])]
     only_positives = other.dropna(subset=['VARIANT_ID'])
     only_positives.drop(labels='EXPECTED_CALL', inplace=True, axis=1)
-    only_positives.loc[:,'STATUS'] = 'FOUND'
+
+    if not only_positives.empty: #check if there are other positive CNV variants
+        only_positives.loc[:,'STATUS'] = 'FOUND'
 
     other_to_output = pd.concat([only_positives])
 
