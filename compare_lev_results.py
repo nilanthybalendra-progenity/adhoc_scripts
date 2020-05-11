@@ -129,11 +129,16 @@ def compare_cnv(f1_cnv, f2_cnv, fc_id1, fc_id2):
     f1_cnv.drop(['SAMPLE_ID', 'GOF', 'CALL_PLOIDY', 'CALL_QUAL'], axis=1, inplace=True) #drop columns that definitely aren't the same between the two
     f2_cnv.drop(['SAMPLE_ID', 'GOF', 'CALL_PLOIDY', 'CALL_QUAL'], axis=1, inplace=True)
 
-    compare = pd.merge(f1_cnv, f2_cnv,
-                       on=['PROPS_ID', 'CALL_TYPE', 'REGION', 'VARIANT_ID', 'CALL', 'STATUS'],
-                       how='outer', indicator='Exist')
+    if f1_cnv.empty | f2_cnv.empty: #if either one has no CNV calls, then we can't compare
+        print("WARNING: One or both flowcells do not have any PP2/CNV calls (excluding SMN and HBA")
+        return False
 
-    return format_compare(compare, fc_id1, fc_id2,['PROPS_ID', 'VARIANT_ID'], dup_logic=True, cnv=True)
+    else:
+        compare = pd.merge(f1_cnv, f2_cnv,
+                           on=['PROPS_ID', 'CALL_TYPE', 'REGION', 'VARIANT_ID', 'CALL', 'STATUS'],
+                           how='outer', indicator='Exist')
+
+        return format_compare(compare, fc_id1, fc_id2,['PROPS_ID', 'VARIANT_ID'], dup_logic=True, cnv=True)
 
 
 def compare_smn_alpha(f1_smn_alpha, f2_smn_alpha, fc_id1, fc_id2):
@@ -213,12 +218,14 @@ def cli():
     with pd.ExcelWriter( output_path / 'levitate_comparison_output.xlsx') as writer:
 
         rt_compare.to_excel(writer, sheet_name='RT & PP1 Comparison', index=None)
-        cnv_compare.to_excel(writer, sheet_name='CNV & PP2 Comparison', index=None)
+        if cnv_compare is not False:
+            cnv_compare.to_excel(writer, sheet_name='CNV & PP2 Comparison', index=None)
         smn_alpha_compare.to_excel(writer, sheet_name='SMN & Alpha Comparison', index=None)
 
     if args.tsv:
         rt_compare.to_csv(output_path / 'lev_lev_rt_compare.tsv',sep='\t', index=None)
-        cnv_compare.to_csv(output_path / 'lev_lev_cnv_pp2_compare.tsv',sep='\t', index=None)
+        if cnv_compare is not False:
+            cnv_compare.to_csv(output_path / 'lev_lev_cnv_pp2_compare.tsv',sep='\t', index=None)
         smn_alpha_compare.to_csv(output_path / 'lev_lev_smn_alpha.tsv', sep='\t', index=None)
 
 if __name__ == '__main__':
