@@ -15,7 +15,6 @@ def ols_smoother(data, xseq, **params):
     results = model.fit()
 
     print(results.params)
-
     data = pd.DataFrame(
         {
             'x': xseq,
@@ -64,6 +63,7 @@ def plot_stuff(joint_calls, outfile, xlim=None):
         + p9.facet_wrap('CONTIG', ncol=2) \
         + p9.theme_bw() \
         + p9.theme(axis_text_y=p9.element_text(size=6)) \
+        + p9.theme(legend_position='bottom') \
         + p9.geom_hline(yintercept=4, linetype='dashed', color='red') \
         + p9.labs(color='')
 
@@ -78,7 +78,7 @@ model_4o = pd.read_csv(main_dir / 'calls_model4o.tsv', sep='\t', header=0)
 
 
 manifest['MODEL'] = 'Model 3.1'
-model_4o['MODEL'] = 'Model 4o'
+model_4o['MODEL'] = 'Model 4.0'
 # merge in known ploidy from manifest
 #model_4o = model_4o.join(manifest['KNOWN_PLOIDY'], sort=False, how='left', on='SAMPLE_ID')
 
@@ -87,7 +87,7 @@ all = pd.concat([manifest, model_4o], join='inner')
 
 #plot
 #all.to_csv('/mnt/ruo_rw/rnd/staff/nilanthy.balendra/tools/adhoc_scripts/sept_plots/sept.tsv', sep='\t')
-plot_stuff(all, main_dir / 'LOD.png')
+plot_stuff(all, main_dir / 'LOD_update.png')
 
 
 # only_reruns = joint_calls.loc[joint_calls['INDIVIDUAL_ID'].isin(rerun_individual_id)]

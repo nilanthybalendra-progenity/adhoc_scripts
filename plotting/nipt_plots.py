@@ -88,7 +88,7 @@ def nipt_null_x(call_1_path, call_2_path, title, output_file):
     data_2 = pd.read_csv(call_2_path, sep='\t', header=0)
 
     mod_1 = "Model 3.1"
-    mod_2 = "Model 4o"
+    mod_2 = "Model 4.0"
 
     fig = plt.figure()
     sns.kdeplot(data_1.loc[data_1['CHRXY_CALL'] == 'FETAL EUPLOIDY, FEMALE', 'CHRX_TVALUE'], color='red',
