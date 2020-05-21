@@ -63,6 +63,53 @@ def t_ggplot(calculations, chrom,ymin,ymax, title, poly_model_changes, output_fi
 
     k.save(output_file, format='png', dpi=500)
 
+def t_ggplot_together(calculations, chrom,ymin,ymax, title, poly_model_changes, output_file, line=False):
+    text_pos =((ymax - ymin) / 2) -1
+
+    if line:
+        k = ggplot(calculations, aes(x='ANALYSIS_WEEK', y=f'AVG_CHR{chrom}_TVALUE', color='MODEL'))\
+            + geom_point() + geom_line(aes(group='MODEL')) \
+            + geom_errorbar(aes(ymin=f'AVG_CHR{chrom}_TVALUE-1.96*CHR{chrom}_TVALUE_SE', ymax=f'AVG_CHR{chrom}_TVALUE+1.96*CHR{chrom}_TVALUE_SE'))\
+            + theme_bw() \
+            + theme(axis_text=element_text(color='black'),
+                axis_text_x=element_text(angle=45, hjust=1),
+                panel_grid_major = element_blank(),
+                panel_grid_minor = element_blank(), figure_size=(15,4)) \
+            + p9.labels.xlab('Analysis Week') + p9.labels.ylab(f'Mean chr{chrom} T-value')+p9.ggtitle(title) + p9.labs(color='') \
+            + scale_y_continuous(breaks=np.arange(ymin, ymax, 0.1), limits=(ymin, ymax)) \
+            + geom_segment(poly_model_changes, aes(x='ANALYSIS_WEEK', xend='ANALYSIS_WEEK', y=ymin, yend=(ymax)), inherit_aes=False, linetype='--', color='purple') \
+            + geom_text(poly_model_changes, aes(x='ANALYSIS_WEEK', y=text_pos, label='version', angle=(90)), inherit_aes=False, ha='right')\
+            + p9.geom_hline(yintercept=0, linetype='dotted', color='grey')
+
+    else:
+        k = ggplot(calculations, aes(x='ANALYSIS_WEEK', y=f'AVG_CHR{chrom}_TVALUE', color='MODEL'))\
+            + geom_point() + geom_line(aes(group='MODEL')) \
+            + geom_errorbar(aes(ymin=f'AVG_CHR{chrom}_TVALUE-1.96*CHR{chrom}_TVALUE_SE', ymax=f'AVG_CHR{chrom}_TVALUE+1.96*CHR{chrom}_TVALUE_SE'))\
+            + theme_bw() \
+            + theme(axis_text=element_text(color='black'),
+                axis_text_x=element_text(angle=45, hjust=1),
+                panel_grid_major = element_blank(),
+                panel_grid_minor = element_blank(), figure_size=(15,4)) \
+            + p9.labels.xlab('Analysis Week') + p9.labels.ylab(f'Mean chr{chrom} T-value')+p9.ggtitle(title) + p9.labs(color='') \
+            + scale_y_continuous(breaks=np.arange(ymin, ymax, 0.1), limits=(ymin, ymax)) \
+            + p9.geom_hline(yintercept=0, linetype='dotted', color='grey')
+
+    k.save(output_file, format='png', dpi=500)
+
+
+def ratio_ggplot(calculations, chrom,title, output_file):
+    k = ggplot(calculations, aes(x='ANALYSIS_WEEK', y=f'chr{chrom}_ratio'))\
+        + geom_point() + geom_line(aes(group=1)) \
+        + theme_bw() \
+        + theme(axis_text=element_text(color='black'),
+            axis_text_x=element_text(angle=45, hjust=1),
+            panel_grid_major = element_blank(),
+            panel_grid_minor = element_blank(), figure_size=(15,4)) \
+        + p9.labels.xlab('Analysis Week') + p9.labels.ylab(f'Ratio')+p9.ggtitle(title)\
+        + p9.geom_hline(yintercept=1, linetype='dotted', color='grey')
+
+    k.save(output_file, format='png', dpi=500)
+
 
 def main():
 
@@ -106,11 +153,33 @@ def main():
     ymin = [-1.3, -1, -1]
     ymax = [0.2, 0.5, 0.2]
 
-    for i, c in enumerate(chr):
+    # for i, c in enumerate(chr):
+    #
+    #     t_ggplot(prod_calculations, c, ymin[i], ymax[i], f'Production: chr{c} Mean T-Value by Week', poly_model_changes, main_dir / 'time_series'/ f'prod_chr{c}.png')
+    #     t_ggplot(mod4_calculations, c, ymin[i], ymax[i], f'Model 4.0: chr{c} Mean T-Value by Week', poly_model_changes, main_dir / 'time_series'/  f'mod4_chr{c}.png')
 
-        t_ggplot(prod_calculations, c, ymin[i], ymax[i], f'Production: chr{c} Mean T-Value by Week', poly_model_changes, main_dir / 'time_series'/ f'prod_chr{c}.png')
-        t_ggplot(mod4_calculations, c, ymin[i], ymax[i], f'Model 4.0: chr{c} Mean T-Value by Week', poly_model_changes, main_dir / 'time_series'/  f'mod4_chr{c}.png')
 
+    # prod_calculations.loc[prod_calculations['COMPANY'] == 'Avero', 'MODEL']     = 'Avero - Production'
+    # prod_calculations.loc[prod_calculations['COMPANY'] == 'Progenity', 'MODEL'] = 'Progenity - Production'
+    # mod4_calculations.loc[mod4_calculations['COMPANY'] == 'Avero', 'MODEL']     = 'Avero - Model 4.0'
+    # mod4_calculations.loc[mod4_calculations['COMPANY'] == 'Progenity', 'MODEL']     = 'Progenity - Model 4.0'
+
+    # prod_calculations['MODEL'] = 'Production'
+    # mod4_calculations['MODEL'] = 'Model 4.0'
+    #
+    # all_calc = pd.concat([prod_calculations, mod4_calculations], axis=0)
+    # all_calc.to_csv('all_cal.tsv', sep='\t', index=None)
+    #
+    # for i, c in enumerate(chr):
+    #     t_ggplot_together(all_calc.loc[all_calc['COMPANY'] == 'Progenity'], c, ymin[i], ymax[i], f'Progenity: chr{c} Mean T-Value by Analysis Week', poly_model_changes, main_dir / 'time_series'/ f'chr{c}_progenity.png', line=True)
+    #     t_ggplot_together(all_calc.loc[all_calc['COMPANY'] == 'Avero'], c, ymin[i], ymax[i], f'Avero: chr{c} Mean T-Value by Analysis Week', poly_model_changes, main_dir / 'time_series' / f'chr{c}_avero.png')
+
+    avero_data     = pd.read_csv(main_dir / 'avero_ratio_4_prod.txt', sep='\t', header=0)
+    progenity_data = pd.read_csv(main_dir / 'progenity_ratio_4_prod.txt', sep='\t', header=0)
+
+    for c in chr:
+        ratio_ggplot(avero_data, c,     f'chr{c} Model 4.0:Prod Progenity T-value Ratio', main_dir / 'ratios' / f'chr{c}_avero_ratio.png')
+        ratio_ggplot(progenity_data, c, f'chr{c} Model 4.0:Prod Avero T-value Ratio',     main_dir / 'ratios' / f'chr{c}_progenity_ratio.png')
 
 if __name__ == '__main__':
     main()
