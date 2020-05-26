@@ -53,7 +53,7 @@ columns_run_file = ['SAMPLE_ID', 'PROPS_ID', 'FLOWCELL', 'PLATE', 'WELL', 'CONTR
 
 #samples.tsv
 early_prod_sample  = pd.read_csv(analytical_data / 'poly_sample_early_prod.tsv', sep='\t', header=0)
-late_prod_sample   = pd.read_csv(analytical_data /'poly_sample_recent.tsv', sep='\t', header=0)
+late_prod_sample   = pd.read_csv(analytical_data /'poly_sample_0526.tsv', sep='\t', header=0)
 
 avero_validation = pd.read_csv(analytical_data / 'avero_validation_samples.tsv', sep='\t', header=0)
 avero_validation_fc = ['HJVYFDMXX', 'HKJMNDMXX', 'HKJYCDMXX', 'HKJYMDMXX']
@@ -71,7 +71,7 @@ prod_sample_data.drop_duplicates(subset='SAMPLE_ID', keep='first', inplace=True)
 
 # read in and cat run tsv
 early_prod_run = pd.read_csv(analytical_data / 'poly_run_early_prod.tsv', sep='\t', header=0)
-recent_prod_run = pd.read_csv(analytical_data / 'poly_run_recent_prod.tsv', sep='\t', header=0)
+recent_prod_run = pd.read_csv(analytical_data / 'poly_run_0526.tsv', sep='\t', header=0)
 prod_run_data = pd.concat([early_prod_run, recent_prod_run], axis=0)
 prod_run_data.drop_duplicates(subset='FCID', keep='first', inplace=True)
 
@@ -93,7 +93,7 @@ raw_model_calls.rename(columns={'CHR13_TVALUE': 'CHR13_TVALUE_PROD',
                                 'CHRY_TVALUE': 'CHRY_TVALUE_PROD'}, inplace=True)
 
 # metadata files
-version = 'v07'
+version = 'v08'
 p_run_data   = pd.read_csv(meta_data / f'progenity_run_data_{version}.tsv', sep='\t', header=0)
 a_run_data   = pd.read_csv(meta_data / f'avero_run_data_{version}.tsv', sep='\t', header=0)
 run_metadata = pd.concat([p_run_data, a_run_data], axis=0)
