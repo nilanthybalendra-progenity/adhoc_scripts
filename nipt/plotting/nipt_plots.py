@@ -83,26 +83,41 @@ def make_scatter(call_data_path, call_data_path2, output_path):
                          output_path / f'X_Model{m}_t_event.png', xlim=(0,10), ylim=(0,15))
 
 
-def nipt_null_x(call_1_path, call_2_path, title, output_file):
+def nipt_null_x(call_1_path, call_2_path, title, output_file, male=False):
     data_1 = pd.read_csv(call_1_path, sep='\t', header=0)
     data_2 = pd.read_csv(call_2_path, sep='\t', header=0)
 
     mod_1 = "Model 3.1"
-    mod_2 = "Model 4.0"
+    mod_2 = "Model 5g"
+
+    if male:
+        sort_crit = 'FETAL EUPLOIDY, MALE'
+        x = np.linspace(-50, 50, 1000)
+    else:
+        sort_crit = 'FETAL EUPLOIDY, FEMALE'
+        x = np.linspace(-10, 10, 1000)
+
+    norm = stats.norm().pdf(x)
 
     fig = plt.figure()
-    sns.kdeplot(data_1.loc[data_1['CHRXY_CALL'] == 'FETAL EUPLOIDY, FEMALE', 'CHRX_TVALUE'], color='red',
+    sns.lineplot(x, norm, color='k', label='Standard Normal')
+    sns.kdeplot(data_1.loc[data_1['CHRXY_CALL'] == sort_crit, 'CHRX_TVALUE'], color='red',
                 label=f'{mod_1} CHRX T-Value')
-    print(f'{mod_1} CHRX_TVALUE: {data_1.loc[data_1["CHRXY_CALL"] == "FETAL EUPLOIDY, FEMALE", "CHRX_TVALUE"].mean()}')
+    print(f'{mod_1} CHRX_TVALUE: {data_1.loc[data_1["CHRXY_CALL"] == sort_crit, "CHRX_TVALUE"].mean()}')
 
-    sns.kdeplot(data_2.loc[data_2['CHRXY_CALL'] == 'FETAL EUPLOIDY, FEMALE', 'CHRX_TVALUE'], color='blue',
+    sns.kdeplot(data_2.loc[data_2['CHRXY_CALL'] == sort_crit, 'CHRX_TVALUE'], color='blue',
                 label=f'{mod_2} CHRX T-Value')
-    print(f'{mod_2} CHRX_TVALUE: {data_2.loc[data_2["CHRXY_CALL"] == "FETAL EUPLOIDY, FEMALE", "CHRX_TVALUE"].mean()}')
+    print(f'{mod_2} CHRX_TVALUE: {data_2.loc[data_2["CHRXY_CALL"] == sort_crit, "CHRX_TVALUE"].mean()}')
 
     plt.xlabel('T-Value')
     plt.title(title)
-    plt.vlines(0, 0, 0.2, colors='k', linestyles='dotted')
-    plt.ylim(0, 0.2)
+    plt.vlines(0, 0, 0.42, colors='k', linestyles='dotted')
+    #plt.ylim(0, 0.2)
+    plt.ylim(min(norm), 0.42)
+
+    if male:
+        plt.xlim(-50, 5)
+
     plt.legend(frameon=False)
 
     fig.savefig(output_file, bbox_inches='tight', dpi=250)
@@ -303,6 +318,8 @@ def arg_parser():
     null_dist_x.add_argument('call_file2', type=Path, help='Path to aggregated call results')
     null_dist_x.add_argument('plot_title', type=str, help='Plot title')
     null_dist_x.add_argument('output_path', type=Path, help='Plot output path')
+    null_dist_x.add_argument('-male', action='store_true', default=False,
+                           help='Plot male euploid fetuses')
 
     null_dist_gof = commands.add_parser('null_dist_gof', help='plot null distribution of t values')
     null_dist_gof.add_argument('call_file', type=Path, help='Path to aggregated call results')
@@ -353,7 +370,7 @@ def cli():
         nipt_null_dist_gof_control(os.path.abspath(args.call_file), os.path.abspath(args.call_file2), Path(os.path.abspath(args.output_path)))
 
     elif args.plot == 'null_dist_x':
-        nipt_null_x(os.path.abspath(args.call_file), os.path.abspath(args.call_file2),args.plot_title, os.path.abspath(args.output_path))
+        nipt_null_x(os.path.abspath(args.call_file), os.path.abspath(args.call_file2),args.plot_title, os.path.abspath(args.output_path), args.male)
 
 
 if __name__ == '__main__':

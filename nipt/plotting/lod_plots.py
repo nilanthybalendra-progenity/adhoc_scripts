@@ -72,22 +72,30 @@ def plot_stuff(joint_calls, outfile, xlim=None):
 
     p.save(outfile, format='png', dpi=500)
 
-main_dir = Path('/mnt/ruo_rw/rnd/SCRUM_Outputs/NIPT_9002/BFX-1130_NB_model4o/')
-manifest = pd.read_csv(main_dir /'manifest_sept2019.tsv', sep='\t', header=0)
-model_4o = pd.read_csv(main_dir / 'calls_model4o.tsv', sep='\t', header=0)
+# main_dir = Path('/mnt/ruo_rw/rnd/SCRUM_Outputs/NIPT_9002/BFX-1130_NB_model4o/')
+# manifest = pd.read_csv(main_dir /'manifest_sept2019.tsv', sep='\t', header=0)
+# model_4o = pd.read_csv(main_dir / 'calls_model4o.tsv', sep='\t', header=0)
+#
+# manifest['MODEL'] = 'Model 3.1'
+# model_4o['MODEL'] = 'Model 4.0'
 
-
-manifest['MODEL'] = 'Model 3.1'
-model_4o['MODEL'] = 'Model 4.0'
 # merge in known ploidy from manifest
 #model_4o = model_4o.join(manifest['KNOWN_PLOIDY'], sort=False, how='left', on='SAMPLE_ID')
 
-all = pd.concat([manifest, model_4o], join='inner')
+
+main_dir = Path('/mnt/ruo_rw/rnd/staff/nilanthy.balendra/model5/')
+manifest = pd.read_csv(main_dir /'model31_mod5_samples.tsv', sep='\t', header=0)
+model_candidate = pd.read_csv(main_dir /'call_g.tsv', sep='\t', header=0)
+
+manifest['MODEL'] = 'Model 3.1'
+model_candidate['MODEL'] = 'Model 5g'
+
+all = pd.concat([manifest, model_candidate], join='inner')
 
 
 #plot
 #all.to_csv('/mnt/ruo_rw/rnd/staff/nilanthy.balendra/tools/adhoc_scripts/sept_plots/sept.tsv', sep='\t')
-plot_stuff(all, main_dir / 'LOD_update.png')
+plot_stuff(all, main_dir / 'plots' / 'LOD.png')
 
 
 # only_reruns = joint_calls.loc[joint_calls['INDIVIDUAL_ID'].isin(rerun_individual_id)]
