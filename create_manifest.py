@@ -54,7 +54,7 @@ columns_run_file = ['SAMPLE_ID', 'PROPS_ID', 'FLOWCELL', 'PLATE', 'WELL', 'CONTR
 #samples.tsv
 early_prod_sample  = pd.read_csv(analytical_data / 'poly_sample_early_prod.tsv', sep='\t', header=0)
 late_prod_sample   = pd.read_csv(analytical_data /'poly_sample_0526.tsv', sep='\t', header=0)
-other_samples      = pd.read_csv(analytical_data /'HLV5WDMXX_const_T21_sample.tsv', sep='\t', header=0)
+other_samples      = pd.read_csv(analytical_data /'HLV5WDMXX_const_T21_sample_fixed.tsv', sep='\t', header=0)
 
 avero_validation = pd.read_csv(analytical_data / 'avero_validation_samples.tsv', sep='\t', header=0)
 avero_validation_fc = ['HJVYFDMXX', 'HKJMNDMXX', 'HKJYCDMXX', 'HKJYMDMXX']
@@ -174,15 +174,22 @@ unique_sample_ids = reported.drop_duplicates(subset='ID', keep='first')
 
 aneuploid = reported.loc[~reported['RESULT'].isin(euploid_values)]
 
-# remap aneuploid RESULT values
-chr = ['13', '18', '21']
 
-for c in chr:
-    aneuploid.loc[((aneuploid['OUTCOMENAME'] == f'Chromosome {c}') & (aneuploid['FETALPLOIDY'] == 'Trisomy')), 'RESULT'] = f'TRISOMY {c}'
-    aneuploid.loc[((aneuploid['OUTCOMENAME'] == f'Chromosome {c}') & (aneuploid['FETALPLOIDY'] == 'Monosomy')), 'RESULT'] = f'MONOSOMY {c}'
+#this will speed things up
+if os.path.isfile(other_data / f'aneuploid_calls_{version}.tsv'):
+    print('Reformated aneuploid calls file exists already!')
+    aneuploid_calls = pd.read_csv(other_data / f'aneuploid_calls_{version}.tsv', sep='\t', header=0, index_col=0)
 
-# create calls dataframe
-aneuploid_calls = aneuploid.groupby('ID')['RESULT'].apply(', '.join) #join calls if sample has more than one call
+else:
+    # remap aneuploid RESULT values
+    chr = ['13', '18', '21']
+    for c in chr:
+        aneuploid.loc[((aneuploid['OUTCOMENAME'] == f'Chromosome {c}') & (aneuploid['FETALPLOIDY'] == 'Trisomy')), 'RESULT'] = f'TRISOMY {c}'
+        aneuploid.loc[((aneuploid['OUTCOMENAME'] == f'Chromosome {c}') & (aneuploid['FETALPLOIDY'] == 'Monosomy')), 'RESULT'] = f'MONOSOMY {c}'
+
+    # create calls dataframe
+    aneuploid_calls = aneuploid.groupby('ID')['RESULT'].apply(', '.join) #join calls if sample has more than one call
+    #aneuploid_calls.to_csv(other_data / f'aneuploid_calls_{version}.tsv', sep='\t')
 
 euploid_id      = [sid for sid in unique_sample_ids['ID'] if sid not in aneuploid['ID'].tolist()] #everything not in the above list but in the reported dataframe is euploid
 euploid_calls   = pd.Series('FETAL EUPLOIDY', index=euploid_id)
@@ -309,6 +316,10 @@ clinical   = tmp10.loc[tmp10['SOURCE'] == 'PRODUCTION']
 validation = tmp10.loc[tmp10['SOURCE'] == 'VALIDATION']
 other      = tmp10.loc[tmp10['SOURCE'] == 'EXPERIMENT']
 
+#these are the constitutional T21 samples
+other.loc[other['INDIVIDUAL_ID'].str.contains('p'), 'KNOWN_PLOIDY'] = 'TRISOMY 21'
+# other.loc[other['INDIVIDUAL_ID'].str.contains('p'), 'SNP_FETAL_PCT'] = 1.0
+
 validation.drop(labels=['INDIVIDUAL_ID', 'FLOWCELL', 'PREGNANCYTYPE', 'FETAL_SEX', 'KNOWN_PLOIDY'], axis=1, inplace=True)
 
 # drop remnants
@@ -317,4 +328,4 @@ val_truth = validation.set_index('SAMPLE_ID').join(validation_truth.set_index('S
 val_truth.reset_index(inplace=True)
 full = pd.concat([clinical, val_truth, other], axis=0, sort=False)
 
-full.to_csv('manifest_branch.tsv', sep='\t', index=None)
+full.to_csv('manifest_branch_final.tsv', sep='\t', index=None)
