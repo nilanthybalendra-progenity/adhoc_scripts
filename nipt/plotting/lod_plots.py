@@ -83,19 +83,19 @@ def plot_stuff(joint_calls, outfile, xlim=None):
 #model_4o = model_4o.join(manifest['KNOWN_PLOIDY'], sort=False, how='left', on='SAMPLE_ID')
 
 
-main_dir = Path('/mnt/ruo_rw/rnd/staff/nilanthy.balendra/model5/')
-manifest = pd.read_csv(main_dir /'model31_mod5_samples.tsv', sep='\t', header=0)
-model_candidate = pd.read_csv(main_dir /'call_g.tsv', sep='\t', header=0)
+main_dir = Path('/mnt/ruo_rw/rnd/staff/nilanthy.balendra/model5/model5_0601')
+manifest = pd.read_csv(main_dir /'model31_mod5_samples_0601.tsv', sep='\t', header=0)
+model_candidate = pd.read_csv(main_dir /'calls_model5.tsv', sep='\t', header=0)
 
 manifest['MODEL'] = 'Model 3.1'
-model_candidate['MODEL'] = 'Model 5g'
+model_candidate['MODEL'] = 'Model 5'
 
 all = pd.concat([manifest, model_candidate], join='inner')
 
 
 #plot
 #all.to_csv('/mnt/ruo_rw/rnd/staff/nilanthy.balendra/tools/adhoc_scripts/sept_plots/sept.tsv', sep='\t')
-plot_stuff(all, main_dir / 'plots' / 'LOD.png')
+plot_stuff(all, main_dir / 'LOD.png')
 
 
 # only_reruns = joint_calls.loc[joint_calls['INDIVIDUAL_ID'].isin(rerun_individual_id)]

@@ -88,7 +88,7 @@ def nipt_null_x(call_1_path, call_2_path, title, output_file, male=False):
     data_2 = pd.read_csv(call_2_path, sep='\t', header=0)
 
     mod_1 = "Model 3.1"
-    mod_2 = "Model 5g"
+    mod_2 = "Model 5"
 
     if male:
         sort_crit = 'FETAL EUPLOIDY, MALE'
