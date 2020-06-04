@@ -49,16 +49,18 @@ other_data =      main_data_dir / 'other_data'
 
 # read in analytical output files
 columns_run_file = ['SAMPLE_ID', 'PROPS_ID', 'FLOWCELL', 'PLATE', 'WELL', 'CONTROL_SAMPLE', 'ANALYSIS_DATETIME',
-                    'DUPLICATION_RATE', 'READS_TOTAL_ALIGNED_PCT', 'SNP_FETAL_PCT']
+                    'DUPLICATION_RATE', 'READS_TOTAL_ALIGNED_PCT', 'READS_TOTAL_COUNT','SNP_FETAL_PCT']
 
 #samples.tsv
 early_prod_sample  = pd.read_csv(analytical_data / 'poly_sample_early_prod.tsv', sep='\t', header=0)
-late_prod_sample   = pd.read_csv(analytical_data /'poly_sample_0526.tsv', sep='\t', header=0)
+late_prod_sample   = pd.read_csv(analytical_data /'poly_sample_0604.tsv', sep='\t', header=0)
+other_samples      = pd.read_csv(analytical_data /'HLV5WDMXX_const_T21_sample_fixed.tsv', sep='\t', header=0)
 
 avero_validation = pd.read_csv(analytical_data / 'avero_validation_samples.tsv', sep='\t', header=0)
 avero_validation_fc = ['HJVYFDMXX', 'HKJMNDMXX', 'HKJYCDMXX', 'HKJYMDMXX']
+other_fc = ['HLV5WDMXX']
 
-recent_prod_sample = pd.concat([late_prod_sample, avero_validation], axis=0)
+recent_prod_sample = pd.concat([late_prod_sample, avero_validation, other_samples], axis=0)
 
 # change columns for the latest data
 recent_prod_sample['PROPS_ID'] = recent_prod_sample['SAMPLE_ID']
@@ -70,9 +72,11 @@ prod_sample_data  = pd.concat([early_prod_sample[columns_run_file], recent_prod_
 prod_sample_data.drop_duplicates(subset='SAMPLE_ID', keep='first', inplace=True)
 
 # read in and cat run tsv
-early_prod_run = pd.read_csv(analytical_data / 'poly_run_early_prod.tsv', sep='\t', header=0)
-recent_prod_run = pd.read_csv(analytical_data / 'poly_run_0526.tsv', sep='\t', header=0)
-prod_run_data = pd.concat([early_prod_run, recent_prod_run], axis=0)
+early_prod_run  = pd.read_csv(analytical_data / 'poly_run_early_prod.tsv', sep='\t', header=0)
+recent_prod_run = pd.read_csv(analytical_data / 'poly_run_0604.tsv', sep='\t', header=0)
+other_run       = pd.read_csv(analytical_data / 'HLV5WDMXX_const_T21_run.tsv', sep='\t', header=0)
+
+prod_run_data = pd.concat([early_prod_run, recent_prod_run, other_run], axis=0)
 prod_run_data.drop_duplicates(subset='FCID', keep='first', inplace=True)
 
 # read in model info (need to use a different one for pre 2.0 as a different model was used, for the rest, the tsvs can be used)
@@ -170,15 +174,22 @@ unique_sample_ids = reported.drop_duplicates(subset='ID', keep='first')
 
 aneuploid = reported.loc[~reported['RESULT'].isin(euploid_values)]
 
-# remap aneuploid RESULT values
-chr = ['13', '18', '21']
 
-for c in chr:
-    aneuploid.loc[((aneuploid['OUTCOMENAME'] == f'Chromosome {c}') & (aneuploid['FETALPLOIDY'] == 'Trisomy')), 'RESULT'] = f'TRISOMY {c}'
-    aneuploid.loc[((aneuploid['OUTCOMENAME'] == f'Chromosome {c}') & (aneuploid['FETALPLOIDY'] == 'Monosomy')), 'RESULT'] = f'MONOSOMY {c}'
+#this will speed things up
+if os.path.isfile(other_data / f'aneuploid_calls_{version}.tsv'):
+    print('Reformated aneuploid calls file exists already!')
+    aneuploid_calls = pd.read_csv(other_data / f'aneuploid_calls_{version}.tsv', sep='\t', header=0, index_col=0)
 
-# create calls dataframe
-aneuploid_calls = aneuploid.groupby('ID')['RESULT'].apply(', '.join) #join calls if sample has more than one call
+else:
+    # remap aneuploid RESULT values
+    chr = ['13', '18', '21']
+    for c in chr:
+        aneuploid.loc[((aneuploid['OUTCOMENAME'] == f'Chromosome {c}') & (aneuploid['FETALPLOIDY'] == 'Trisomy')), 'RESULT'] = f'TRISOMY {c}'
+        aneuploid.loc[((aneuploid['OUTCOMENAME'] == f'Chromosome {c}') & (aneuploid['FETALPLOIDY'] == 'Monosomy')), 'RESULT'] = f'MONOSOMY {c}'
+
+    # create calls dataframe
+    aneuploid_calls = aneuploid.groupby('ID')['RESULT'].apply(', '.join) #join calls if sample has more than one call
+    #aneuploid_calls.to_csv(other_data / f'aneuploid_calls_{version}.tsv', sep='\t')
 
 euploid_id      = [sid for sid in unique_sample_ids['ID'] if sid not in aneuploid['ID'].tolist()] #everything not in the above list but in the reported dataframe is euploid
 euploid_calls   = pd.Series('FETAL EUPLOIDY', index=euploid_id)
@@ -299,15 +310,22 @@ tmp10 = tmp9.merge(prod_run_data[['FCID', 'RUN_PHIX_ALIGN_PCT', 'YIELD']], how='
 # add truth info for validation flowcells
 tmp10['SOURCE'] = 'PRODUCTION'
 tmp10.loc[tmp10['FLOWCELL'].isin(avero_validation_fc), 'SOURCE'] = 'VALIDATION'
+tmp10.loc[tmp10['FLOWCELL'].isin(other_fc), 'SOURCE'] = 'EXPERIMENT'
 
 clinical   = tmp10.loc[tmp10['SOURCE'] == 'PRODUCTION']
 validation = tmp10.loc[tmp10['SOURCE'] == 'VALIDATION']
+other      = tmp10.loc[tmp10['SOURCE'] == 'EXPERIMENT']
+
+#these are the constitutional T21 samples
+other.loc[other['INDIVIDUAL_ID'].str.contains('p'), 'KNOWN_PLOIDY'] = 'TRISOMY 21'
+# other.loc[other['INDIVIDUAL_ID'].str.contains('p'), 'SNP_FETAL_PCT'] = 1.0
+
 validation.drop(labels=['INDIVIDUAL_ID', 'FLOWCELL', 'PREGNANCYTYPE', 'FETAL_SEX', 'KNOWN_PLOIDY'], axis=1, inplace=True)
 
 # drop remnants
 validation = validation.loc[validation['SAMPLE_ID'].isin(validation_truth['SAMPLE_ID'])]
 val_truth = validation.set_index('SAMPLE_ID').join(validation_truth.set_index('SAMPLE_ID'), sort=False, how='left', on='SAMPLE_ID')
 val_truth.reset_index(inplace=True)
-full = pd.concat([clinical, val_truth], axis=0, sort=False)
+full = pd.concat([clinical, val_truth, other], axis=0, sort=False)
 
-full.to_csv('manifest_branch.tsv', sep='\t', index=None)
+full.to_csv('manifest_branch_final.tsv', sep='\t', index=None)
