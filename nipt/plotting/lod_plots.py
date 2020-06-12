@@ -64,7 +64,7 @@ def plot_stuff(joint_calls, outfile, xlim=None):
         + p9.theme_bw() \
         + p9.theme(axis_text_y=p9.element_text(size=6)) \
         + p9.theme(legend_position='bottom') \
-        + p9.geom_hline(yintercept=4, linetype='dashed', color='red') \
+        + p9.geom_hline(yintercept=6, linetype='dashed', color='red') \
         + p9.labs(color='')
 
     if xlim:
@@ -84,20 +84,20 @@ def plot_stuff(joint_calls, outfile, xlim=None):
 
 
 main_dir = Path('/mnt/ruo_rw/rnd/staff/nilanthy.balendra/model5/model_analysis/model5_0601')
-manifest = pd.read_csv(main_dir /'model31_mod5_samples_0601.tsv', sep='\t', header=0)
+manifest = pd.read_csv('/mnt/ruo_rw/rnd/staff/nilanthy.balendra/model5/model_analysis/2_model5_0607/short_manifest.tsv', sep='\t', header=0)
 model_candidate = pd.read_csv(main_dir /'calls_model5.tsv', sep='\t', header=0)
-model_candidate2 = pd.read_csv('/mnt/ruo_rw/rnd/staff/nilanthy.balendra/model5/model_analysis/2_model5_0607/calls_model5_mm1.tsv', sep='\t', header=0)
+#model_candidate2 = pd.read_csv('/mnt/ruo_rw/rnd/staff/nilanthy.balendra/model5/model_analysis/2_model5_0607/calls_model5_mm1.tsv', sep='\t', header=0)
 
 manifest['MODEL'] = 'Model 3.1'
-model_candidate['MODEL'] = 'Model 5 0mm'
-model_candidate2['MODEL'] = 'Model 5 1mm'
+model_candidate['MODEL'] = 'Model 5'
+#model_candidate2['MODEL'] = 'Model 5 1mm'
 
-all = pd.concat([manifest, model_candidate, model_candidate2], join='inner')
+all = pd.concat([manifest, model_candidate], join='inner')
 
 
 #plot
 #all.to_csv('/mnt/ruo_rw/rnd/staff/nilanthy.balendra/tools/adhoc_scripts/sept_plots/sept.tsv', sep='\t')
-plot_stuff(all, '/mnt/ruo_rw/rnd/staff/nilanthy.balendra/model5/model_analysis/2_model5_0607/plots/LOD.png')
+plot_stuff(all, '/mnt/ruo_rw/rnd/staff/nilanthy.balendra/model5/model_analysis/2_model5_0607/for_presentation/LOD_6.png')
 
 
 # only_reruns = joint_calls.loc[joint_calls['INDIVIDUAL_ID'].isin(rerun_individual_id)]
