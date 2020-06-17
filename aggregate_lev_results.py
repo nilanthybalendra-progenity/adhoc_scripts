@@ -151,46 +151,66 @@ def aggregate_calls(main_path, fc_id):
 
     dirs = get_file_list(main_path, fc_id)
 
-    all_vgraph = pd.DataFrame()
-    agg_cnv = pd.DataFrame()
+    rt_dfs = []
+    rt_dfs_nf = []
+    agg_cnv_dfs = []
 
     for d in dirs:
-        rt = main_path / d / 'readthrough' / 'calls_rt.tsv'
-        pp1 = main_path / d / 'readthrough' / 'calls_pp1.tsv'
+        rt = main_path / d / 'results' / 'rt.tsv'
         cnv = main_path / d / 'cnv' / 'calls.tsv'
 
-        if os.path.isfile(rt) and os.path.isfile(pp1)and os.path.isfile(cnv):
+        if os.path.isfile(rt) and os.path.isfile(cnv):
 
             rt_output = pd.read_csv(rt, sep='\t', header=0)
-            no_fp = rt_output[~rt_output['ALLELE_ID'].isin(fp)] #drop fingerprint variants
-            all_rt = no_fp[no_fp['STATUS'].isin(['FOUND','NOCALL'])] # drop NOTFOUND calls
-            all_rt.insert(3, 'TYPE', 'READTHROUGH')
+            no_fp = rt_output.loc[~rt_output['BFX_RT_ALLELEID'].isin(fp)] #drop fingerprint variants
+            no_fp = no_fp.loc[~no_fp['BFX_RT_ALLELEID'].str.contains('CYP21A2')]
 
-            pp1_output = pd.read_csv(pp1, sep='\t', header=0)
-            found_pp1  = pp1_output[pp1_output['STATUS'].isin(['FOUND','NOCALL'])] # drop NOTFOUND calls
-            all_pp1 = found_pp1[~found_pp1['ALLELE_ID'].str.contains('CYP21A2')] # drop exon variants
-            all_pp1.insert(3,'TYPE', 'PP1')
+            no_fp = no_fp[['BFX_RT_BFXID', 'BFX_RT_ALLELEID', 'BFX_RT_CALLSTATUS', 'BFX_RT_CALLTYPE', 'BFX_RT_VARIANTQUAL',
+                             'BFX_RT_CALLQUAL', 'BFX_RT_ALLELEPLOIDY', 'BFX_RT_REFERENCEPLOIDY', 'BFX_RT_OTHERPLOIDY',
+                             'BFX_RT_ALLELEREADS', 'BFX_RT_REFERENCEREADS', 'BFX_RT_OTHERREADS', 'BFX_RT_COVERAGE', 'BFX_RT_ALLELERATIO',
+                             'BFX_RT_ZYGOSITY']]
+
+            rt_calls = no_fp.loc[no_fp['BFX_RT_CALLSTATUS'].isin(['FOUND', 'NOCALL'])]  # drop NOTFOUND calls
+            rt_calls_nf = no_fp.loc[no_fp['BFX_RT_CALLSTATUS'].isin(['NOTFOUND'])]  # drop NOTFOUND calls
 
             cnv_calls = pd.read_csv(cnv, sep='\t', header=0)
 
-            all_vgraph = pd.concat([all_vgraph, all_rt, all_pp1], axis=0, sort=False)
-            agg_cnv = pd.concat([agg_cnv, cnv_calls], axis=0, sort=False)
+            rt_dfs.append(rt_calls)
+            rt_dfs_nf.append(rt_calls_nf)
+            agg_cnv_dfs.append(cnv_calls)
+
+    all_rt_calls = pd.concat(rt_dfs, axis=0, sort=False)
+    all_nf_rt_calls = pd.concat(rt_dfs_nf, axis=0, sort=False)
+    agg_cnv = pd.concat(agg_cnv_dfs, axis=0, sort=False)
 
     gene = []
     market_name = []
     disease = []
     # add variant metadata
-    for ind, row in all_vgraph.iterrows():
+    for ind, row in all_rt_calls.iterrows():
         vsid = row[1]
         gene.append(meta_data.loc[vsid, 'GENE'])
         market_name.append(meta_data.loc[vsid, 'MARKET NAME'])
         disease.append(meta_data.loc[vsid, 'DISEASES'])
 
-    all_vgraph.insert(4, 'GENE', gene)
-    all_vgraph.insert(5, 'MARKET_NAME', market_name)
-    all_vgraph.insert(6, 'DISEASE', disease)
+    all_rt_calls.rename(columns={'BFX_RT_BFXID': 'SAMPLE_ID',
+                           'BFX_RT_ALLELEID': 'ALLELE_ID',
+                           'BFX_RT_CALLSTATUS': 'STATUS',
+                           'BFX_RT_CALLTYPE': 'TYPE',
+                           'BFX_RT_VARIANTQUAL': 'VARIANT_QUALITY',
+                           'BFX_RT_CALLQUAL': 'CALL QUALITY',
+                           'BFX_RT_ALLELEPLOIDY': 'ALLELE_PLOIDY',
+                           'BFX_RT_REFERENCEPLOIDY': 'REFERENCE_PLOIDY',
+                           'BFX_RT_OTHERPLOIDY': 'OTHER_PLOIDY',
+                           'BFX_RT_ALLELEREADS': 'ALLELE_READS',
+                           'BFX_RT_REFERENCEREADS': 'REFERENCE_READS',
+                           'BFX_RT_OTHERREADS': 'OTHER_READS'}, inplace=True)
 
-    return all_vgraph, agg_cnv
+    all_rt_calls.insert(4, 'GENE', gene)
+    all_rt_calls.insert(5, 'MARKET_NAME', market_name)
+    all_rt_calls.insert(6, 'DISEASE', disease)
+
+    return all_rt_calls, all_nf_rt_calls, agg_cnv
 
 
 def create_cnv_results(calls):
@@ -263,7 +283,7 @@ def cli():
     sample_output, hs_output = aggregate_qc(flowcell_result_path, sample_alignment_path, fcs)
 
     print('Aggregating RT and PP1')
-    rt_pp1, agg_cnv = aggregate_calls(sample_result_path, fcs)
+    rt_pp1, rt_nf, agg_cnv = aggregate_calls(sample_result_path, fcs)
 
     print('Aggregating SMA, Alphathal, & other positive CNVs')
     smn_alpha, positive_CNV_PP2 = create_cnv_results(agg_cnv)
@@ -287,7 +307,7 @@ def cli():
         rt_pp1.to_csv(args.output_path / f'{prefix}_rt_pp1.tsv', sep='\t', index=None)
         smn_alpha.to_csv(args.output_path / f'{prefix}_smn_alpha.tsv', sep='\t', index=None)
         positive_CNV_PP2.to_csv(args.output_path / f'{prefix}_other_cnv_pp2.tsv', sep='\t', index=None)
-
+        rt_nf.to_csv(args.output_path / f'{prefix}_rt_pp1_notfound.tsv', sep='\t', index=None)
 
 if __name__ == '__main__':
     cli()
