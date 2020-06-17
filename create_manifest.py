@@ -1,12 +1,13 @@
 import numpy as np
 import os
-import  json
+import json
 import pandas as pd
 
 from pathlib import Path
 
 
 def control_list(data):
+    '''Set '''
     tmp = data.loc[data['CONTROL_SAMPLE'] != 'Test', ['PROPS_ID', 'KNOWN_PLOIDY', 'HOST_SEX', 'FETAL_SEX', 'WELL', 'RUN', 'CONTROL_SAMPLE']]
 
     tmp.loc[tmp['WELL'] == 'H12', 'CONTROL_SAMPLE'] = 'NTC'
@@ -39,6 +40,7 @@ def control_list(data):
         control_info['SET'] == True,
         ['PROPS_ID', 'KNOWN_PLOIDY', 'HOST_SEX', 'FETAL_SEX', 'CONTROL_SAMPLE']].drop_duplicates(subset='PROPS_ID', keep='first')
 
+
 # paths where data files are
 main_data_dir =   Path('/mnt/bfx_projects/nipt_lifecycle/data/metadata')
 
@@ -48,17 +50,17 @@ clinical_data   = main_data_dir / 'from_clinical'
 other_data =      main_data_dir / 'other_data'
 
 # read in analytical output files
-columns_run_file = ['SAMPLE_ID', 'PROPS_ID', 'FLOWCELL', 'PLATE', 'WELL', 'CONTROL_SAMPLE', 'ANALYSIS_DATETIME',
+sample_cols = ['SAMPLE_ID', 'PROPS_ID', 'FLOWCELL', 'PLATE', 'WELL', 'CONTROL_SAMPLE', 'ANALYSIS_DATETIME',
                     'DUPLICATION_RATE', 'READS_TOTAL_ALIGNED_PCT', 'READS_TOTAL_COUNT','SNP_FETAL_PCT']
 
 #samples.tsv
 early_prod_sample  = pd.read_csv(analytical_data / 'poly_sample_early_prod.tsv', sep='\t', header=0)
 late_prod_sample   = pd.read_csv(analytical_data /'poly_sample_0615.tsv', sep='\t', header=0)
 other_samples      = pd.read_csv(analytical_data /'HLV5WDMXX_const_T21_sample_fixed.tsv', sep='\t', header=0)
+avero_validation   = pd.read_csv(analytical_data / 'avero_validation_samples.tsv', sep='\t', header=0)
 
-avero_validation = pd.read_csv(analytical_data / 'avero_validation_samples.tsv', sep='\t', header=0)
 avero_validation_fc = ['HJVYFDMXX', 'HKJMNDMXX', 'HKJYCDMXX', 'HKJYMDMXX']
-other_fc = ['HLV5WDMXX']
+other_fc = ['HLV5WDMXX'] #consitutional T21 flowcell
 
 recent_prod_sample = pd.concat([late_prod_sample, avero_validation, other_samples], axis=0)
 
@@ -67,11 +69,11 @@ recent_prod_sample['PROPS_ID'] = recent_prod_sample['SAMPLE_ID']
 recent_prod_sample.drop(labels=['SAMPLE_ID'], axis=1, inplace=True)
 recent_prod_sample['SAMPLE_ID'] = recent_prod_sample['BFX_RESULT_ID']
 
-# concat together sample tsv
-prod_sample_data  = pd.concat([early_prod_sample[columns_run_file], recent_prod_sample[columns_run_file]], axis=0)
+# concat together all sample tsv
+prod_sample_data  = pd.concat([early_prod_sample[sample_cols], recent_prod_sample[sample_cols]], axis=0)
 prod_sample_data.drop_duplicates(subset='SAMPLE_ID', keep='first', inplace=True)
 
-# read in and cat run tsv
+# run.tsv
 early_prod_run  = pd.read_csv(analytical_data / 'poly_run_early_prod.tsv', sep='\t', header=0)
 recent_prod_run = pd.read_csv(analytical_data / 'poly_run_0615.tsv', sep='\t', header=0)
 other_run       = pd.read_csv(analytical_data / 'HLV5WDMXX_const_T21_run.tsv', sep='\t', header=0)
@@ -79,16 +81,17 @@ other_run       = pd.read_csv(analytical_data / 'HLV5WDMXX_const_T21_run.tsv', s
 prod_run_data = pd.concat([early_prod_run, recent_prod_run, other_run], axis=0)
 prod_run_data.drop_duplicates(subset='FCID', keep='first', inplace=True)
 
-# read in model info (need to use a different one for pre 2.0 as a different model was used, for the rest, the tsvs can be used)
+# read in model info (need to use a specific model file for pre 2.0, as a different model was used, for the rest, the tsvs can be used)
 model31_calls_for_pre_2 = pd.read_csv(analytical_data / 'calls_model3.1.tsv', sep='\t', header=0)
-columns_mod_file  = ['SAMPLE_ID', 'GOF', 'READ_COUNT', 'CHR13_CALL', 'CHR18_CALL', 'CHR21_CALL',
+
+mod_cols  = ['SAMPLE_ID', 'GOF', 'READ_COUNT', 'CHR13_CALL', 'CHR18_CALL', 'CHR21_CALL',
                      'CHRXY_CALL', 'CHR13_PLOIDY', 'CHR18_PLOIDY', 'CHR21_PLOIDY', 'CHRX_PLOIDY', 'CHRY_PLOIDY',
                      'CHR13_TVALUE', 'CHR18_TVALUE', 'CHR21_TVALUE', 'CHRX_TVALUE', 'CHRY_TVALUE', 'CHR13_FETAL_PCT', 'CHR18_FETAL_PCT','CHR21_FETAL_PCT', 'CHRY_FETAL_PCT']
 
-model31_calls = pd.concat([model31_calls_for_pre_2[columns_mod_file], recent_prod_sample[columns_mod_file]], axis=0).drop_duplicates(subset='SAMPLE_ID', keep='first')
+model31_calls = pd.concat([model31_calls_for_pre_2[mod_cols], recent_prod_sample[mod_cols]], axis=0).drop_duplicates(subset='SAMPLE_ID', keep='first')
 
+# also include t-values at time of production
 raw_model_cols = ['SAMPLE_ID', 'CHR13_TVALUE', 'CHR18_TVALUE', 'CHR21_TVALUE', 'CHRX_TVALUE', 'CHRY_TVALUE']
-
 raw_model_calls = pd.concat([early_prod_sample[raw_model_cols], recent_prod_sample[raw_model_cols]], axis=0).drop_duplicates(subset='SAMPLE_ID', keep='first')
 raw_model_calls.rename(columns={'CHR13_TVALUE': 'CHR13_TVALUE_PROD',
                                 'CHR18_TVALUE': 'CHR18_TVALUE_PROD',
@@ -97,7 +100,7 @@ raw_model_calls.rename(columns={'CHR13_TVALUE': 'CHR13_TVALUE_PROD',
                                 'CHRY_TVALUE': 'CHRY_TVALUE_PROD'}, inplace=True)
 
 # metadata files
-version = 'v09'
+version = 'v09' #BI extract version number
 p_run_data   = pd.read_csv(meta_data / f'progenity_run_data_{version}.tsv', sep='\t', header=0)
 a_run_data   = pd.read_csv(meta_data / f'avero_run_data_{version}.tsv', sep='\t', header=0)
 run_metadata = pd.concat([p_run_data, a_run_data], axis=0)
@@ -105,6 +108,7 @@ run_metadata = pd.concat([p_run_data, a_run_data], axis=0)
 p_sample_data   = pd.read_csv(meta_data / f'progenity_sample_data_{version}.tsv', sep='\t', header=0)
 a_sample_data   = pd.read_csv(meta_data / f'avero_sample_data_{version}.tsv', sep='\t', header=0)
 sample_metadata = pd.concat([p_sample_data, a_sample_data], axis=0)
+
 sample_metadata.drop(labels=['COMPANY'], axis=1, inplace=True) #this is already in run_metadata
 sample_metadata.drop_duplicates(subset='SAMPLEID', keep='first', inplace=True)
 
@@ -122,7 +126,7 @@ sample_metadata['State'] = sample_metadata.apply(
 p_reported = pd.read_csv(meta_data / f'progenity_reported_data_{version}.tsv', sep='\t', header=0)
 a_reported = pd.read_csv(meta_data / f'avero_reported_data_{version}.tsv', sep='\t', header=0)
 reported   = pd.concat([p_reported, a_reported], axis=0)
-reported = reported.loc[reported['OUTCOMENAME'] != 'Chromosome XY - Twin'] #because we don't care about twin calls
+reported   = reported.loc[reported['OUTCOMENAME'] != 'Chromosome XY - Twin'] #because we don't care about twin calls
 
 exclude_samples  = pd.read_csv(other_data / 'exclude_samples.txt', sep='\t', header=0)
 outcome_data     = pd.read_csv(other_data / 'outcomes.txt', sep='\t', header=0, dtype={'SID': object})
@@ -150,9 +154,14 @@ prod_sample_data = prod_sample_data.loc[~prod_sample_data['FLOWCELL'].isin(faile
 # this is a flowcell that was run twice using the same fcid (before and after nipt 2.0 launch). Dropping the first run.
 prod_sample_data = prod_sample_data.loc[~(prod_sample_data['FLOWCELL'].isin(['HKF7TDMXX']) & prod_sample_data['ANALYSIS_DATETIME'].str.contains('2019-09-08'))]
 
+# start combining datasets
+
 # join aggregated samples.tsv with the model calls
 tmp = prod_sample_data.join(model31_calls.set_index('SAMPLE_ID'), sort=False, how='left', on='SAMPLE_ID')
 tmp = tmp.join(raw_model_calls.set_index('SAMPLE_ID'), sort=False, how='left', on='SAMPLE_ID')
+
+# add in run.tsv data
+tmp = tmp.merge(prod_run_data[['FCID', 'RUN_PHIX_ALIGN_PCT', 'YIELD']], how='left', left_on='FLOWCELL', right_on='FCID')
 
 #join in run metadata for progenity and avero
 tmp['join_helper'] = tmp['FLOWCELL'] + '_' + tmp['PLATE'] + '_' + tmp['WELL'] + tmp['PROPS_ID']
@@ -167,15 +176,13 @@ tmp2 = tmp.merge(sample_metadata, how='left', left_on='PROPS_ID', right_on='SAMP
 tmp2 = tmp2.merge(ex_well_map[['SAMPLESHEET_WELL', 'EXTRACTION_PLATE_WELL']], how='left', left_on='WELL', right_on='SAMPLESHEET_WELL')
 
 # putting reported data in a friendly format
-
 euploid_values = ['FETAL EUPLOIDY', 'FETAL EUPLOIDY, FEMALE', 'FETAL EUPLOIDY, MALE', 'CHRY ABSENT', 'CHRY PRESENT']
 reported['ID'] = reported['FLOWCELL'] + '_' + reported['SAMPLEID'].apply(str)
 unique_sample_ids = reported.drop_duplicates(subset='ID', keep='first')
 
 aneuploid = reported.loc[~reported['RESULT'].isin(euploid_values)]
 
-
-#this will speed things up
+#this will speed things up (still working on this)
 if os.path.isfile(other_data / f'aneuploid_calls_{version}.tsv'):
     print('Reformated aneuploid calls file exists already!')
     aneuploid_calls = pd.read_csv(other_data / f'aneuploid_calls_{version}.tsv', sep='\t', header=0, index_col=0)
@@ -189,12 +196,12 @@ else:
 
     # create calls dataframe
     aneuploid_calls = aneuploid.groupby('ID')['RESULT'].apply(', '.join) #join calls if sample has more than one call
-    #aneuploid_calls.to_csv(other_data / f'aneuploid_calls_{version}.tsv', sep='\t')
 
 euploid_id      = [sid for sid in unique_sample_ids['ID'] if sid not in aneuploid['ID'].tolist()] #everything not in the above list but in the reported dataframe is euploid
 euploid_calls   = pd.Series('FETAL EUPLOIDY', index=euploid_id)
 calls = euploid_calls.append(aneuploid_calls)
 
+# join in reported values
 tmp2['join_helper2'] = tmp2['FLOWCELL'] + '_' + tmp2['PROPS_ID']
 tmp3 = tmp2.join(calls.rename('REPORTED_PLOIDY'), sort=False, how='left', on='join_helper2')
 
@@ -210,7 +217,7 @@ tmp4 = tmp3.merge(xy, how='left', left_on='PROPS_ID', right_on='SAMPLEID')
 
 #HOST SEX
 tmp4['HOST_SEX'] = 'FEMALE'
-tmp4.loc[tmp4['CONTROL_SAMPLE'] == 'Control', 'HOST_SEX'] = 'MALE' #lab only runs male controls???
+tmp4.loc[tmp4['CONTROL_SAMPLE'] == 'Control', 'HOST_SEX'] = '' #fill in knowns later
 
 #RUN NUMBER
 tmp4['RERUN'] = tmp4.duplicated(subset='PROPS_ID', keep=False)
@@ -245,7 +252,7 @@ tmp7.loc[tmp7['PROPS_ID'].isin(sercare), 'KNOWN_PLOIDY'] = 'TRISOMY 13, TRISOMY 
 tmp7.loc[tmp7['CONTROL_SAMPLE'] == 'Control', 'KNOWN_PLOIDY'] = 'FETAL EUPLOIDY'
 tmp7.loc[pd.isna(tmp7['FN']), 'FN'] = False
 
-#replace KNOWN_PLOIDY with blank for dubious values/calls
+#flag outliers
 positives = tmp7.loc[(tmp7['KNOWN_PLOIDY'] != 'FETAL EUPLOIDY') & (tmp7['KNOWN_PLOIDY'].isnull() == False)]
 outlier_sid = []
 
@@ -259,9 +266,7 @@ print(f'Outliers: {len(outlier_sid)}')
 tmp7['IS_OUTLIER'] = False
 tmp7.loc[tmp7['SAMPLE_ID'].isin(outlier_sid), 'IS_OUTLIER'] = True
 
-#tmp7['KNOWN_PLOIDY'].loc[tmp7['SAMPLE_ID'].isin(outlier_sid)] = ''
-
-# dealing with controls
+# dealing with controls, based on info from clinical
 control_info = control_list(tmp7)
 
 for i, row in control_info.iterrows():
@@ -281,40 +286,34 @@ tmp7.loc[(tmp7['PROPS_ID'].str[0] != 'A') & (tmp7['COMPANY'].isnull()), 'COMPANY
 tmp7.loc[(tmp7['PROPS_ID'].str[0] == 'A') & (tmp7['COMPANY'].isnull()), 'COMPANY'] = 'Avero'
 tmp7.rename(columns={'PROPS_ID': 'INDIVIDUAL_ID'}, inplace=True)
 
+# clean up failures
 failed = tmp7.loc[tmp7['REPORTED_PLOIDY'].str.contains('Fail') | tmp7['REPORTED_PLOIDY'].str.contains('FAIL')]
-failed['IS_FAIL'] = 'TRUE'
 
 not_failed_reported = tmp7.loc[~(tmp7['REPORTED_PLOIDY'].str.contains('Fail') | tmp7['REPORTED_PLOIDY'].str.contains('FAIL')) & (tmp7['REPORTED_PLOIDY'].isnull() == False)]
-not_failed_reported['IS_FAIL'] = 'FALSE'
-
 not_failed_or_reported = tmp7.loc[~(tmp7['REPORTED_PLOIDY'].str.contains('Fail') | tmp7['REPORTED_PLOIDY'].str.contains('FAIL')) & (tmp7['REPORTED_PLOIDY'].isnull() == True)]
-not_failed_or_reported['IS_FAIL'] = np.nan
-
-failed['REPORTED_PLOIDY'] = failed['REPORTED_PLOIDY'].str.split(',').str[0]
+failed['REPORTED_PLOIDY'] = failed['REPORTED_PLOIDY'].str.split(',').str[0] # get rid of duplicate comma sep entries for failures
 tmp8 = pd.concat([failed, not_failed_reported, not_failed_or_reported], axis=0, sort=False)
 
 failed = tmp8.loc[tmp8['KNOWN_PLOIDY'].str.contains('Fail') | tmp8['KNOWN_PLOIDY'].str.contains('FAIL')]
+failed['IS_FAIL'] = 'TRUE'
 not_failed = tmp8.loc[~(tmp8['KNOWN_PLOIDY'].str.contains('Fail') | tmp8['KNOWN_PLOIDY'].str.contains('FAIL'))]
-failed['KNOWN_PLOIDY'] = failed['KNOWN_PLOIDY'].str.split(',').str[0]
+not_failed['IS_FAIL'] = 'FALSE'
+failed['KNOWN_PLOIDY'] = failed['KNOWN_PLOIDY'].str.split(',').str[0] # get rid of duplicate comma sep entries for failures
 tmp9 = pd.concat([failed, not_failed], axis=0, sort=False)
 
 # fixing weird user entry
-tmp9.loc[tmp9['PLATESETUPUSERNAME'] == 'matthew.o&#39;hara', 'PLATESETUPUSERNAME']      = 'matthew.ohara'
+tmp9.loc[tmp9['PLATESETUPUSERNAME'] == 'matthew.o&#39;hara', 'PLATESETUPUSERNAME']           = 'matthew.ohara'
 tmp9.loc[tmp9['TARGETEDCAPTUREUSERNAME'] == 'matthew.o&#39;hara', 'TARGETEDCAPTUREUSERNAME'] = 'matthew.ohara'
-tmp9.loc[tmp9['INDEXINGPCRUSERNAME'] == 'matthew.o&#39;hara', 'INDEXINGPCRUSERNAME']     = 'matthew.ohara'
-
-# add in prod run tsv data
-
-tmp10 = tmp9.merge(prod_run_data[['FCID', 'RUN_PHIX_ALIGN_PCT', 'YIELD']], how='left', left_on='FLOWCELL', right_on='FCID')
+tmp9.loc[tmp9['INDEXINGPCRUSERNAME'] == 'matthew.o&#39;hara', 'INDEXINGPCRUSERNAME']         = 'matthew.ohara'
 
 # add truth info for validation flowcells
-tmp10['SOURCE'] = 'PRODUCTION'
-tmp10.loc[tmp10['FLOWCELL'].isin(avero_validation_fc), 'SOURCE'] = 'VALIDATION'
-tmp10.loc[tmp10['FLOWCELL'].isin(other_fc), 'SOURCE'] = 'EXPERIMENT'
+tmp9['SOURCE'] = 'PRODUCTION'
+tmp9.loc[tmp9['FLOWCELL'].isin(avero_validation_fc), 'SOURCE'] = 'VALIDATION'
+tmp9.loc[tmp9['FLOWCELL'].isin(other_fc), 'SOURCE'] = 'EXPERIMENT'
 
-clinical   = tmp10.loc[tmp10['SOURCE'] == 'PRODUCTION']
-validation = tmp10.loc[tmp10['SOURCE'] == 'VALIDATION']
-other      = tmp10.loc[tmp10['SOURCE'] == 'EXPERIMENT']
+clinical   = tmp9.loc[tmp9['SOURCE'] == 'PRODUCTION']
+validation = tmp9.loc[tmp9['SOURCE'] == 'VALIDATION']
+other      = tmp9.loc[tmp9['SOURCE'] == 'EXPERIMENT']
 
 #these are the constitutional T21 samples
 other.loc[other['INDIVIDUAL_ID'].str.contains('p'), 'KNOWN_PLOIDY'] = 'TRISOMY 21'
@@ -328,4 +327,4 @@ val_truth = validation.set_index('SAMPLE_ID').join(validation_truth.set_index('S
 val_truth.reset_index(inplace=True)
 full = pd.concat([clinical, val_truth, other], axis=0, sort=False)
 
-full.to_csv('manifest_branch_v09.tsv', sep='\t', index=None)
+full.to_csv('manifest_branch.tsv', sep='\t', index=None)
