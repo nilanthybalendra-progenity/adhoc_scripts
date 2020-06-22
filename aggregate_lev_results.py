@@ -109,6 +109,9 @@ def aggregate_qc(flowcell_result_path, aligns_path, fc_id):
     f_dirs = get_file_list(flowcell_result_path, fc_id)
     hs = []
     sample_metrics = pd.DataFrame()
+    batch_metrics = pd.DataFrame()
+    flowcell_metrics = pd.DataFrame()
+    fp = pd.DataFrame()
 
     for d in sample_dirs:
         hs_metrics_path = aligns_path / d / 'metrics' / 'hs_metrics.tsv'
@@ -123,7 +126,10 @@ def aggregate_qc(flowcell_result_path, aligns_path, fc_id):
     hs_metrics = pd.DataFrame(data=hs, columns=header)
 
     for d in f_dirs:
-        sample_metrics_path = flowcell_result_path / d / 'sample_metrics.tsv'
+        sample_metrics_path   = flowcell_result_path / d / 'sample_metrics.tsv'
+        batch_metrics_path    = flowcell_result_path / d / 'batch_metrics.tsv'
+        flowcell_metrics_path = flowcell_result_path / d / 'flowcell_metrics.tsv'
+        fp_path = flowcell_result_path / d / 'fingerprints.tsv'
 
         if os.path.isfile(sample_metrics_path):
             temp= pd.read_csv(sample_metrics_path, sep='\t', header=0)
@@ -132,7 +138,15 @@ def aggregate_qc(flowcell_result_path, aligns_path, fc_id):
             cols.insert(0, cols.pop(cols.index('LIS_REQUEST_BFXID'))) #move LIS_REQUEST_BFXID to first column position
             sample_metrics = pd.concat([sample_metrics, temp.loc[:, cols]], axis=0, sort=False)
 
-    return sample_metrics, hs_metrics
+            tmp_fp      = pd.read_csv(fp_path, sep='\t', header=0)
+            tmp_bmetrics = pd.read_csv(batch_metrics_path, sep='\t', header=0)
+            tmp_fmetrics = pd.read_csv(flowcell_metrics_path, sep='\t', header=0)
+
+            batch_metrics = pd.concat([batch_metrics, tmp_bmetrics], axis=0, sort=False)
+            flowcell_metrics = pd.concat([flowcell_metrics, tmp_fmetrics], axis=0, sort=False)
+            fp = pd.concat([fp, tmp_fp], axis=0, sort=False)
+
+    return sample_metrics, batch_metrics, flowcell_metrics, hs_metrics, fp
 
 
 def aggregate_calls(main_path, fc_id):
@@ -280,7 +294,7 @@ def cli():
     fcs = args.fcid.split(',')
 
     print('Aggregating QC Metrics')
-    sample_output, hs_output = aggregate_qc(flowcell_result_path, sample_alignment_path, fcs)
+    sample_output, batch_output, flowcell_output, hs_output, fingerprints = aggregate_qc(flowcell_result_path, sample_alignment_path, fcs)
 
     print('Aggregating RT and PP1')
     rt_pp1, rt_nf, agg_cnv = aggregate_calls(sample_result_path, fcs)
@@ -292,7 +306,10 @@ def cli():
     with pd.ExcelWriter(f'{output_path}/{prefix}_output.xlsx') as writer:
 
         sample_output.to_excel(writer, sheet_name='Sample Metrics', index=None)
+        batch_output.to_excel(writer, sheet_name='Batch Metrics', index=None)
+        flowcell_output.to_excel(writer, sheet_name='Flowcell Metrics', index=None)
         hs_output.to_excel(writer, sheet_name='HS Metrics', index=None)
+        fingerprints.to_excel(writer, sheet_name='Fingerprints', index=None)
 
         rt_pp1.to_excel(writer, sheet_name='RT & PP1 Variants', index=None)
         smn_alpha.to_excel(writer, sheet_name='SMN & Alpha', index=None)
