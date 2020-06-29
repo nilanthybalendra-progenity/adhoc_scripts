@@ -71,6 +71,7 @@ recent_prod_sample['SAMPLE_ID'] = recent_prod_sample['BFX_RESULT_ID']
 
 # concat together all sample tsv
 prod_sample_data  = pd.concat([early_prod_sample[sample_cols], recent_prod_sample[sample_cols]], axis=0)
+prod_sample_data['INDEX_PLATE'] = prod_sample_data['PLATE'].str.split('-').str[-1]
 prod_sample_data.drop_duplicates(subset='SAMPLE_ID', keep='first', inplace=True)
 
 # run.tsv
