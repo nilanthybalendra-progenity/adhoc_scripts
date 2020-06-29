@@ -79,6 +79,15 @@ def format_compare(compare, fc_id1, fc_id2, sorter, dup_logic=False, cnv=False):
     return compare.loc[:, cols]
 
 
+def get_props_id(df):
+    if np.all(df['SAMPLE_ID'].str.contains('_')):
+        df['PROPS_ID'] = df['SAMPLE_ID'].str.split('_').str[-1]
+
+    else:
+        df['PROPS_ID'] = df['SAMPLE_ID'].str.split('-').str[-1]
+
+    return df
+
 def compare_rt(f1_rt, f2_rt, fc_id1, fc_id2):
     """Compares readthrough calls (ploidy and call_quality) between two flowcells. Returns dataframe of results.
 
@@ -91,8 +100,10 @@ def compare_rt(f1_rt, f2_rt, fc_id1, fc_id2):
     Returns: dataframe
 
     """
-    f1_rt['PROPS_ID'] = f1_rt['SAMPLE_ID'].str.split('_').str[-1]
-    f2_rt['PROPS_ID'] = f2_rt['SAMPLE_ID'].str.split('_').str[-1]
+    # f1_rt['PROPS_ID'] = f1_rt['SAMPLE_ID'].str.split('_').str[-1]
+    # f2_rt['PROPS_ID'] = f2_rt['SAMPLE_ID'].str.split('_').str[-1]
+    f1_rt = get_props_id(f1_rt)
+    f2_rt = get_props_id(f2_rt)
 
     f1_rt = f1_rt.astype({'ALLELE_PLOIDY': 'str', 'REFERENCE_PLOIDY': 'str', 'OTHER_PLOIDY': 'str'})
     f2_rt = f2_rt.astype({'ALLELE_PLOIDY': 'str', 'REFERENCE_PLOIDY': 'str', 'OTHER_PLOIDY': 'str'})
@@ -102,7 +113,7 @@ def compare_rt(f1_rt, f2_rt, fc_id1, fc_id2):
     f2_rt.drop(['SAMPLE_ID', 'VARIANT_QUALITY', 'ALLELE_READS', 'REFERENCE_READS', 'OTHER_READS'], axis=1, inplace=True)
 
     compare = pd.merge(f1_rt, f2_rt,
-                       on=['PROPS_ID', 'ALLELE_ID', 'STATUS', 'TYPE', 'GENE', 'MARKET_NAME', 'DISEASE', 'CALL_QUALITY',
+                       on=['PROPS_ID', 'ALLELE_ID', 'STATUS', 'TYPE', 'GENE', 'MARKET_NAME', 'DISEASE', 'CALL QUALITY',
                            'ALLELE_PLOIDY', 'REFERENCE_PLOIDY', 'OTHER_PLOIDY'], how='outer', indicator='Exist')
 
     return format_compare(compare, fc_id1, fc_id2,['PROPS_ID', 'ALLELE_ID'], dup_logic=True)
@@ -120,8 +131,10 @@ def compare_cnv(f1_cnv, f2_cnv, fc_id1, fc_id2):
     Returns: dataframe
 
     """
-    f1_cnv['PROPS_ID'] = f1_cnv['SAMPLE_ID'].str.split('_').str[-1]
-    f2_cnv['PROPS_ID'] = f2_cnv['SAMPLE_ID'].str.split('_').str[-1]
+    # f1_cnv['PROPS_ID'] = f1_cnv['SAMPLE_ID'].str.split('_').str[-1]
+    # f2_cnv['PROPS_ID'] = f2_cnv['SAMPLE_ID'].str.split('_').str[-1]
+    f1_cnv = get_props_id(f1_cnv)
+    f2_cnv = get_props_id(f2_cnv)
 
     f1_cnv = f1_cnv.astype({'CALL': 'str'})
     f2_cnv = f2_cnv.astype({'CALL': 'str'})
@@ -153,8 +166,10 @@ def compare_smn_alpha(f1_smn_alpha, f2_smn_alpha, fc_id1, fc_id2):
     Returns: dataframe
 
     """
-    f1_smn_alpha['PROPS_ID'] = f1_smn_alpha['SAMPLE_ID'].str.split('_').str[-1]
-    f2_smn_alpha['PROPS_ID'] = f2_smn_alpha['SAMPLE_ID'].str.split('_').str[-1]
+    # f1_smn_alpha['PROPS_ID'] = f1_smn_alpha['SAMPLE_ID'].str.split('_').str[-1]
+    # f2_smn_alpha['PROPS_ID'] = f2_smn_alpha['SAMPLE_ID'].str.split('_').str[-1]
+    f1_smn_alpha = get_props_id(f1_smn_alpha)
+    f2_smn_alpha = get_props_id(f2_smn_alpha)
 
     f1_smn_alpha = f1_smn_alpha.astype({'SMN1 Call': 'str', 'SMN2 Call': 'str'})
     f2_smn_alpha = f2_smn_alpha.astype({'SMN1 Call': 'str', 'SMN2 Call': 'str'})
