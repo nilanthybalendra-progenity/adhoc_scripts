@@ -1,4 +1,5 @@
 import argparse
+import pandas as pd
 from pathlib import Path
 from subprocess                   import PIPE, Popen
 
@@ -8,9 +9,10 @@ def cluster(args):
     fc_path = args.fc_path
     out_dir = args.out_dir
 
-    fc_list = [line.rstrip('\n') for line in open(fc_path)]
-
-    sbatch_cmd = ['sbatch']
+    # fc_list = [line.rstrip('\n') for line in open(fc_path)]
+    fc_file = pd.read_csv(fc_path, sep='\t', header=0)
+    fc_list = fc_file['FLOWCELL'].tolist()
+    sbatch_cmd = ['sbatch','-n', '4']
 
     for i, fc in enumerate(fc_list):
         print(i)

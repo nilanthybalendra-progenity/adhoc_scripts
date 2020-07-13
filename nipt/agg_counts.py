@@ -48,10 +48,13 @@ def aggregate_counts(args):
             ind +=1
             appended_count_files.append(counts)
 
+        # if ind ==5:
+        #     break
+
     all_counts = pd.concat(appended_count_files, axis=1)
 
-    # all_counts.to_csv(out_dir / f'{fc}_counts.tsv',sep='\t')
-    all_counts.to_parquet(out_dir / f'{fc}_counts.pq', index=True)
+    #all_counts.to_csv(out_dir / f'{fc}.tsv',sep='\t')
+    all_counts.to_parquet(out_dir / f'{fc}.pq', index=True)
 
 
 def arg_parser():
