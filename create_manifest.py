@@ -55,7 +55,7 @@ sample_cols = ['SAMPLE_ID', 'PROPS_ID', 'FLOWCELL', 'PLATE', 'WELL', 'CONTROL_SA
 
 #samples.tsv
 early_prod_sample  = pd.read_csv(analytical_data / 'poly_sample_early_prod.tsv', sep='\t', header=0)
-late_prod_sample   = pd.read_csv(analytical_data /'poly_sample_0622.tsv', sep='\t', header=0)
+late_prod_sample   = pd.read_csv(analytical_data /'poly_sample_0713.tsv', sep='\t', header=0)
 other_samples      = pd.read_csv(analytical_data /'HLV5WDMXX_const_T21_sample_fixed.tsv', sep='\t', header=0)
 avero_validation   = pd.read_csv(analytical_data / 'avero_validation_samples.tsv', sep='\t', header=0)
 
@@ -76,7 +76,7 @@ prod_sample_data.drop_duplicates(subset='SAMPLE_ID', keep='first', inplace=True)
 
 # run.tsv
 early_prod_run  = pd.read_csv(analytical_data / 'poly_run_early_prod.tsv', sep='\t', header=0)
-recent_prod_run = pd.read_csv(analytical_data / 'poly_run_0622.tsv', sep='\t', header=0)
+recent_prod_run = pd.read_csv(analytical_data / 'poly_run_0713.tsv', sep='\t', header=0)
 other_run       = pd.read_csv(analytical_data / 'HLV5WDMXX_const_T21_run.tsv', sep='\t', header=0)
 
 prod_run_data = pd.concat([early_prod_run, recent_prod_run, other_run], axis=0)
@@ -328,4 +328,5 @@ val_truth = validation.set_index('SAMPLE_ID').join(validation_truth.set_index('S
 val_truth.reset_index(inplace=True)
 full = pd.concat([clinical, val_truth, other], axis=0, sort=False)
 
-full.to_csv('manifest_branch_0622.tsv', sep='\t', index=None)
+full.to_csv('manifest_branch_wo_new_extract.tsv', sep='\t', index=None)
+
