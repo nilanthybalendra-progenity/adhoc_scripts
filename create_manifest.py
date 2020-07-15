@@ -101,7 +101,7 @@ raw_model_calls.rename(columns={'CHR13_TVALUE': 'CHR13_TVALUE_PROD',
                                 'CHRY_TVALUE': 'CHRY_TVALUE_PROD'}, inplace=True)
 
 # metadata files
-version = 'v09' #BI extract version number
+version = 'v11' #BI extract version number
 p_run_data   = pd.read_csv(meta_data / f'progenity_run_data_{version}.tsv', sep='\t', header=0)
 a_run_data   = pd.read_csv(meta_data / f'avero_run_data_{version}.tsv', sep='\t', header=0)
 run_metadata = pd.concat([p_run_data, a_run_data], axis=0)
@@ -117,11 +117,11 @@ sample_metadata.drop_duplicates(subset='SAMPLEID', keep='first', inplace=True)
 with open("states.json") as f:
     state_abbv = json.load(f)
 
-sample_metadata['State'] = sample_metadata.apply(
-    lambda row: row['State'] if row['State'] in state_abbv.values()
-    else state_abbv[row['State']] if row['State'] in state_abbv.keys()
-    else row['PostalCode'] if str(row['PostalCode']) in state_abbv.values()
-    else 'CA' if str(row['State'])[:2] == 'CA'
+sample_metadata['STATE'] = sample_metadata.apply(
+    lambda row: row['STATE'] if row['STATE'] in state_abbv.values()
+    else state_abbv[row['STATE']] if row['STATE'] in state_abbv.keys()
+    else row['POSTALCODE'] if str(row['POSTALCODE']) in state_abbv.values()
+    else 'CA' if str(row['STATE'])[:2] == 'CA'
     else np.nan, axis=1)
 
 p_reported = pd.read_csv(meta_data / f'progenity_reported_data_{version}.tsv', sep='\t', header=0)
@@ -148,8 +148,8 @@ exclude_plates = ['PPU70017-1A', 'PPU70018-1B', 'PPU70020-1D']
 prod_sample_data = prod_sample_data.loc[~prod_sample_data['PLATE'].isin(exclude_plates)]
 prod_sample_data = prod_sample_data.loc[~prod_sample_data['SAMPLE_ID'].isin(exclude_samples['exclude'].to_list())]
 
-# dropping some failed flowcells
-failed_fc = ['HMLGHDMXX', 'HMK27DMXX', 'HM3F2DMXX', 'HLV2MDMXX', 'HLV7LDMXX', 'HLVW7DMXX', 'HN3KGDMXX']
+# dropping some failed flowcells, identified using samples that had more than 2 runs of which two of them had the same plate ID
+failed_fc = ['HMLGHDMXX', 'HMK27DMXX', 'HM3F2DMXX', 'HLV2MDMXX', 'HLV7LDMXX', 'HLVW7DMXX', 'HN3KGDMXX', 'HC3LHDRXX']
 prod_sample_data = prod_sample_data.loc[~prod_sample_data['FLOWCELL'].isin(failed_fc)]
 
 # this is a flowcell that was run twice using the same fcid (before and after nipt 2.0 launch). Dropping the first run.
@@ -278,8 +278,8 @@ for i, row in control_info.iterrows():
     tmp7.loc[cond, 'KNOWN_PLOIDY']   = row['KNOWN_PLOIDY']
 
 # finally some clean up
-tmp7.drop(labels=['join_helper2', 'join_helper', 'SampleId', 'SID', 'RESULT', 'SAMPLEID_x', 'SAMPLEID_y', 'SAMPLESHEET_WELL'], axis=1, inplace=True)
-tmp7.rename(columns={'OrderId': 'ORDER_ID', 'State': 'STATE', 'PostalCode': 'POSTAL_CODE', 'CONTROL_SAMPLE': 'SAMPLE_TYPE', 'SAMPLETYPE': 'DNA_SOURCE'}, inplace=True)
+tmp7.drop(labels=['join_helper2', 'join_helper', 'SAMPLEID.1', 'SID', 'RESULT', 'SAMPLEID_x', 'SAMPLEID_y', 'SAMPLESHEET_WELL'], axis=1, inplace=True)
+tmp7.rename(columns={'CONTROL_SAMPLE': 'SAMPLE_TYPE', 'SAMPLETYPE': 'DNA_SOURCE'}, inplace=True)
 tmp7.loc[tmp7['EXTRACTIONINSTRUMENTNAME'] == 'L000461', 'EXTRACTIONINSTRUMENTNAME'] = 'L00461'
 tmp7['BMIATTIMEOFDRAW'].replace(0,np.nan, inplace=True)
 tmp7['BMIATTIMEOFDRAW'].replace(-1,np.nan, inplace=True)
@@ -328,5 +328,5 @@ val_truth = validation.set_index('SAMPLE_ID').join(validation_truth.set_index('S
 val_truth.reset_index(inplace=True)
 full = pd.concat([clinical, val_truth, other], axis=0, sort=False)
 
-full.to_csv('manifest_branch_wo_new_extract.tsv', sep='\t', index=None)
+full.to_csv('manifest_branch_v11.tsv', sep='\t', index=None)
 
