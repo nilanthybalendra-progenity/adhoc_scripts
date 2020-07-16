@@ -110,6 +110,8 @@ p_sample_data   = pd.read_csv(meta_data / f'progenity_sample_data_{version}.tsv'
 a_sample_data   = pd.read_csv(meta_data / f'avero_sample_data_{version}.tsv', sep='\t', header=0)
 sample_metadata = pd.concat([p_sample_data, a_sample_data], axis=0)
 
+p_workflow_data = pd.read_csv(meta_data / f'progenity_workflow_data_{version}.tsv', sep='\t', header=0)
+
 sample_metadata.drop(labels=['COMPANY'], axis=1, inplace=True) #this is already in run_metadata
 sample_metadata.drop_duplicates(subset='SAMPLEID', keep='first', inplace=True)
 
@@ -176,157 +178,164 @@ tmp2 = tmp.merge(sample_metadata, how='left', left_on='PROPS_ID', right_on='SAMP
 #add in extraction well data
 tmp2 = tmp2.merge(ex_well_map[['SAMPLESHEET_WELL', 'EXTRACTION_PLATE_WELL']], how='left', left_on='WELL', right_on='SAMPLESHEET_WELL')
 
-# putting reported data in a friendly format
-euploid_values = ['FETAL EUPLOIDY', 'FETAL EUPLOIDY, FEMALE', 'FETAL EUPLOIDY, MALE', 'CHRY ABSENT', 'CHRY PRESENT']
-reported['ID'] = reported['FLOWCELL'] + '_' + reported['SAMPLEID'].apply(str)
-unique_sample_ids = reported.drop_duplicates(subset='ID', keep='first')
-
-aneuploid = reported.loc[~reported['RESULT'].isin(euploid_values)]
-
-#this will speed things up (still working on this)
-if os.path.isfile(other_data / f'aneuploid_calls_{version}.tsv'):
-    print('Reformated aneuploid calls file exists already!')
-    aneuploid_calls = pd.read_csv(other_data / f'aneuploid_calls_{version}.tsv', sep='\t', header=0, index_col=0)
-
-else:
-    # remap aneuploid RESULT values
-    chr = ['13', '18', '21']
-    for c in chr:
-        aneuploid.loc[((aneuploid['OUTCOMENAME'] == f'Chromosome {c}') & (aneuploid['FETALPLOIDY'] == 'Trisomy')), 'RESULT'] = f'TRISOMY {c}'
-        aneuploid.loc[((aneuploid['OUTCOMENAME'] == f'Chromosome {c}') & (aneuploid['FETALPLOIDY'] == 'Monosomy')), 'RESULT'] = f'MONOSOMY {c}'
-
-    # create calls dataframe
-    aneuploid_calls = aneuploid.groupby('ID')['RESULT'].apply(', '.join) #join calls if sample has more than one call
-
-euploid_id      = [sid for sid in unique_sample_ids['ID'] if sid not in aneuploid['ID'].tolist()] #everything not in the above list but in the reported dataframe is euploid
-euploid_calls   = pd.Series('FETAL EUPLOIDY', index=euploid_id)
-calls = euploid_calls.append(aneuploid_calls)
-
-# join in reported values
-tmp2['join_helper2'] = tmp2['FLOWCELL'] + '_' + tmp2['PROPS_ID']
-tmp3 = tmp2.join(calls.rename('REPORTED_PLOIDY'), sort=False, how='left', on='join_helper2')
-
-# now add other columns that are useful
-
-# FETAL SEX
-xy = reported.loc[reported['OUTCOMENAME']=='Chromosome XY', ['SAMPLEID','RESULT']]
-xy.loc[xy['RESULT'].str.contains('FETAL EUPLOIDY, FEMALE|FETAL X0|FETAL XXX'), 'FETAL_SEX']                   = 'FEMALE'
-xy.loc[xy['RESULT'].str.contains('FETAL EUPLOIDY, MALE|FETAL XXY|FETAL XYY|CHRY INDETERMINATE'), 'FETAL_SEX'] = 'MALE'
-xy['SAMPLEID'] = xy['SAMPLEID'].astype(str)
-xy.drop_duplicates(subset='SAMPLEID', inplace=True, keep='first')
-tmp4 = tmp3.merge(xy, how='left', left_on='PROPS_ID', right_on='SAMPLEID')
-
-#HOST SEX
-tmp4['HOST_SEX'] = 'FEMALE'
-tmp4.loc[tmp4['CONTROL_SAMPLE'] == 'Control', 'HOST_SEX'] = '' #fill in knowns later
-
-#RUN NUMBER
-tmp4['RERUN'] = tmp4.duplicated(subset='PROPS_ID', keep=False)
-
-rerun_samples_sorted = tmp4.loc[(tmp4['RERUN'] == True) & (tmp4['CONTROL_SAMPLE'] == 'Test')].sort_values(by=['PROPS_ID', 'ANALYSIS_DATETIME'])
-rerun_samples_sorted.loc[:, 'RUN_NUM'] = rerun_samples_sorted.groupby('PROPS_ID').cumcount()
-
-# make it so it isn't 0 indexed :)
-rerun_samples_sorted['RUN_NUM'] += 1
-
-# put it together with stuff that was only run once
-one_run = tmp4.loc[~((tmp4['RERUN'] == True) & (tmp4['CONTROL_SAMPLE'] == 'Test'))]
-one_run.loc[:, 'RUN_NUM'] = 1
-tmp5 = pd.concat([one_run, rerun_samples_sorted], axis=0)
-
-# OUTCOME PLOIDY and SEX
-tmp6 = tmp5.merge(outcome_data, how='left', left_on='PROPS_ID', right_on='SID')
-tmp6['FETAL_SEX'] = np.where(tmp6['OUTCOME_SEX'].isnull() == True, tmp6['FETAL_SEX'], tmp6['OUTCOME_SEX'])
-
-# KNOWN PLOIDY
-sercare = ['1902150150', '1902150160', '1902150162']
-
-calls = calls.to_frame()
-calls.reset_index(inplace=True)
-calls.columns = ['SAMPLE_ID', 'KNOWN_PLOIDY']
-calls['PROPS_ID'] = calls['SAMPLE_ID'].str.split('_').str[-1]
-calls.drop_duplicates(subset='PROPS_ID', inplace=True, keep='first')
-tmp7 = tmp6.merge(calls[['PROPS_ID', 'KNOWN_PLOIDY']], how='left', left_on='PROPS_ID', right_on='PROPS_ID')
-
-tmp7['KNOWN_PLOIDY'] = np.where(tmp7['OUTCOME_PLOIDY'].isnull() == True, tmp7['KNOWN_PLOIDY'], tmp7['OUTCOME_PLOIDY'])
-tmp7.loc[tmp7['PROPS_ID'].isin(sercare), 'KNOWN_PLOIDY'] = 'TRISOMY 13, TRISOMY 18, TRISOMY 21'
-tmp7.loc[tmp7['CONTROL_SAMPLE'] == 'Control', 'KNOWN_PLOIDY'] = 'FETAL EUPLOIDY'
-tmp7.loc[pd.isna(tmp7['FN']), 'FN'] = False
-
-#flag outliers
-positives = tmp7.loc[(tmp7['KNOWN_PLOIDY'] != 'FETAL EUPLOIDY') & (tmp7['KNOWN_PLOIDY'].isnull() == False)]
-outlier_sid = []
-
-for c in chr:
-    specific = positives.loc[positives['KNOWN_PLOIDY'].str.contains(f'TRISOMY {c}|MONOSOMY {c}')]
-    specific.loc[:, 'ABS'] = abs(specific[f'CHR{c}_TVALUE'])
-    outlier = specific.loc[(specific[f'CHR{c}_TVALUE'] < 8) & (specific['SNP_FETAL_PCT'] > 8)]
-    outlier_sid += outlier['SAMPLE_ID'].tolist()
-
-print(f'Outliers: {len(outlier_sid)}')
-tmp7['IS_OUTLIER'] = False
-tmp7.loc[tmp7['SAMPLE_ID'].isin(outlier_sid), 'IS_OUTLIER'] = True
-
-# dealing with controls, based on info from clinical
-control_info = control_list(tmp7)
-
-for i, row in control_info.iterrows():
-    cond = tmp7['PROPS_ID'] == row['PROPS_ID']
-    tmp7.loc[cond, 'HOST_SEX']       = row['HOST_SEX']
-    tmp7.loc[cond, 'FETAL_SEX']      = row['FETAL_SEX']
-    tmp7.loc[cond, 'CONTROL_SAMPLE'] = row['CONTROL_SAMPLE']
-    tmp7.loc[cond, 'KNOWN_PLOIDY']   = row['KNOWN_PLOIDY']
-
-# finally some clean up
-tmp7.drop(labels=['join_helper2', 'join_helper', 'SAMPLEID.1', 'SID', 'RESULT', 'SAMPLEID_x', 'SAMPLEID_y', 'SAMPLESHEET_WELL'], axis=1, inplace=True)
-tmp7.rename(columns={'CONTROL_SAMPLE': 'SAMPLE_TYPE', 'SAMPLETYPE': 'DNA_SOURCE'}, inplace=True)
-tmp7.loc[tmp7['EXTRACTIONINSTRUMENTNAME'] == 'L000461', 'EXTRACTIONINSTRUMENTNAME'] = 'L00461'
-tmp7['BMIATTIMEOFDRAW'].replace(0,np.nan, inplace=True)
-tmp7['BMIATTIMEOFDRAW'].replace(-1,np.nan, inplace=True)
-tmp7.loc[(tmp7['PROPS_ID'].str[0] != 'A') & (tmp7['COMPANY'].isnull()), 'COMPANY'] = 'Progenity'
-tmp7.loc[(tmp7['PROPS_ID'].str[0] == 'A') & (tmp7['COMPANY'].isnull()), 'COMPANY'] = 'Avero'
-tmp7.rename(columns={'PROPS_ID': 'INDIVIDUAL_ID'}, inplace=True)
-
-# clean up failures
-failed = tmp7.loc[tmp7['REPORTED_PLOIDY'].str.contains('Fail') | tmp7['REPORTED_PLOIDY'].str.contains('FAIL')]
-
-not_failed_reported = tmp7.loc[~(tmp7['REPORTED_PLOIDY'].str.contains('Fail') | tmp7['REPORTED_PLOIDY'].str.contains('FAIL')) & (tmp7['REPORTED_PLOIDY'].isnull() == False)]
-not_failed_or_reported = tmp7.loc[~(tmp7['REPORTED_PLOIDY'].str.contains('Fail') | tmp7['REPORTED_PLOIDY'].str.contains('FAIL')) & (tmp7['REPORTED_PLOIDY'].isnull() == True)]
-failed['REPORTED_PLOIDY'] = failed['REPORTED_PLOIDY'].str.split(',').str[0] # get rid of duplicate comma sep entries for failures
-tmp8 = pd.concat([failed, not_failed_reported, not_failed_or_reported], axis=0, sort=False)
-
-failed = tmp8.loc[tmp8['KNOWN_PLOIDY'].str.contains('Fail') | tmp8['KNOWN_PLOIDY'].str.contains('FAIL')]
-failed['IS_FAIL'] = 'TRUE'
-not_failed = tmp8.loc[~(tmp8['KNOWN_PLOIDY'].str.contains('Fail') | tmp8['KNOWN_PLOIDY'].str.contains('FAIL'))]
-not_failed['IS_FAIL'] = 'FALSE'
-failed['KNOWN_PLOIDY'] = failed['KNOWN_PLOIDY'].str.split(',').str[0] # get rid of duplicate comma sep entries for failures
-tmp9 = pd.concat([failed, not_failed], axis=0, sort=False)
-
-# fixing weird user entry
-tmp9.loc[tmp9['PLATESETUPUSERNAME'] == 'matthew.o&#39;hara', 'PLATESETUPUSERNAME']           = 'matthew.ohara'
-tmp9.loc[tmp9['TARGETEDCAPTUREUSERNAME'] == 'matthew.o&#39;hara', 'TARGETEDCAPTUREUSERNAME'] = 'matthew.ohara'
-tmp9.loc[tmp9['INDEXINGPCRUSERNAME'] == 'matthew.o&#39;hara', 'INDEXINGPCRUSERNAME']         = 'matthew.ohara'
-
-# add truth info for validation flowcells
-tmp9['SOURCE'] = 'PRODUCTION'
-tmp9.loc[tmp9['FLOWCELL'].isin(avero_validation_fc), 'SOURCE'] = 'VALIDATION'
-tmp9.loc[tmp9['FLOWCELL'].isin(other_fc), 'SOURCE'] = 'EXPERIMENT'
-
-clinical   = tmp9.loc[tmp9['SOURCE'] == 'PRODUCTION']
-validation = tmp9.loc[tmp9['SOURCE'] == 'VALIDATION']
-other      = tmp9.loc[tmp9['SOURCE'] == 'EXPERIMENT']
-
-#these are the constitutional T21 samples
-other.loc[other['INDIVIDUAL_ID'].str.contains('p'), 'KNOWN_PLOIDY'] = 'TRISOMY 21'
-# other.loc[other['INDIVIDUAL_ID'].str.contains('p'), 'SNP_FETAL_PCT'] = 1.0
-
-validation.drop(labels=['INDIVIDUAL_ID', 'FLOWCELL', 'PREGNANCYTYPE', 'FETAL_SEX', 'KNOWN_PLOIDY'], axis=1, inplace=True)
-
-# drop remnants
-validation = validation.loc[validation['SAMPLE_ID'].isin(validation_truth['SAMPLE_ID'])]
-val_truth = validation.set_index('SAMPLE_ID').join(validation_truth.set_index('SAMPLE_ID'), sort=False, how='left', on='SAMPLE_ID')
-val_truth.reset_index(inplace=True)
-full = pd.concat([clinical, val_truth, other], axis=0, sort=False)
-
-full.to_csv('manifest_branch_v11.tsv', sep='\t', index=None)
-
+# join in workflow data
+tmp2['join_helper3'] = tmp2['RUN'] + '_' + tmp2['PLATE']
+p_workflow_data['join_helper3'] = p_workflow_data['SEQRUNNUMBER'] + '_' +p_workflow_data['PLATEBARCODE']
+print(p_workflow_data.columns)
+p_workflow_data.drop(labels=['SEQRUNNUMBER', 'PLATEBARCODE'], axis=1, inplace=True)
+tmp2 = tmp2.join(p_workflow_data.set_index('join_helper3'), sort=False, how='left', on='join_helper3')
+tmp2.to_csv('tmp2.tsv', sep='\t', index=None)
+# # putting reported data in a friendly format
+# euploid_values = ['FETAL EUPLOIDY', 'FETAL EUPLOIDY, FEMALE', 'FETAL EUPLOIDY, MALE', 'CHRY ABSENT', 'CHRY PRESENT']
+# reported['ID'] = reported['FLOWCELL'] + '_' + reported['SAMPLEID'].apply(str)
+# unique_sample_ids = reported.drop_duplicates(subset='ID', keep='first')
+#
+# aneuploid = reported.loc[~reported['RESULT'].isin(euploid_values)]
+#
+# #this will speed things up (still working on this)
+# if os.path.isfile(other_data / f'aneuploid_calls_{version}.tsv'):
+#     print('Reformated aneuploid calls file exists already!')
+#     aneuploid_calls = pd.read_csv(other_data / f'aneuploid_calls_{version}.tsv', sep='\t', header=0, index_col=0)
+#
+# else:
+#     # remap aneuploid RESULT values
+#     chr = ['13', '18', '21']
+#     for c in chr:
+#         aneuploid.loc[((aneuploid['OUTCOMENAME'] == f'Chromosome {c}') & (aneuploid['FETALPLOIDY'] == 'Trisomy')), 'RESULT'] = f'TRISOMY {c}'
+#         aneuploid.loc[((aneuploid['OUTCOMENAME'] == f'Chromosome {c}') & (aneuploid['FETALPLOIDY'] == 'Monosomy')), 'RESULT'] = f'MONOSOMY {c}'
+#
+#     # create calls dataframe
+#     aneuploid_calls = aneuploid.groupby('ID')['RESULT'].apply(', '.join) #join calls if sample has more than one call
+#
+# euploid_id      = [sid for sid in unique_sample_ids['ID'] if sid not in aneuploid['ID'].tolist()] #everything not in the above list but in the reported dataframe is euploid
+# euploid_calls   = pd.Series('FETAL EUPLOIDY', index=euploid_id)
+# calls = euploid_calls.append(aneuploid_calls)
+#
+# # join in reported values
+# tmp2['join_helper2'] = tmp2['FLOWCELL'] + '_' + tmp2['PROPS_ID']
+# tmp3 = tmp2.join(calls.rename('REPORTED_PLOIDY'), sort=False, how='left', on='join_helper2')
+#
+# # now add other columns that are useful
+#
+# # FETAL SEX
+# xy = reported.loc[reported['OUTCOMENAME']=='Chromosome XY', ['SAMPLEID','RESULT']]
+# xy.loc[xy['RESULT'].str.contains('FETAL EUPLOIDY, FEMALE|FETAL X0|FETAL XXX'), 'FETAL_SEX']                   = 'FEMALE'
+# xy.loc[xy['RESULT'].str.contains('FETAL EUPLOIDY, MALE|FETAL XXY|FETAL XYY|CHRY INDETERMINATE'), 'FETAL_SEX'] = 'MALE'
+# xy['SAMPLEID'] = xy['SAMPLEID'].astype(str)
+# xy.drop_duplicates(subset='SAMPLEID', inplace=True, keep='first')
+# tmp4 = tmp3.merge(xy, how='left', left_on='PROPS_ID', right_on='SAMPLEID')
+#
+# #HOST SEX
+# tmp4['HOST_SEX'] = 'FEMALE'
+# tmp4.loc[tmp4['CONTROL_SAMPLE'] == 'Control', 'HOST_SEX'] = '' #fill in knowns later
+#
+# #RUN NUMBER
+# tmp4['RERUN'] = tmp4.duplicated(subset='PROPS_ID', keep=False)
+#
+# rerun_samples_sorted = tmp4.loc[(tmp4['RERUN'] == True) & (tmp4['CONTROL_SAMPLE'] == 'Test')].sort_values(by=['PROPS_ID', 'ANALYSIS_DATETIME'])
+# rerun_samples_sorted.loc[:, 'RUN_NUM'] = rerun_samples_sorted.groupby('PROPS_ID').cumcount()
+#
+# # make it so it isn't 0 indexed :)
+# rerun_samples_sorted['RUN_NUM'] += 1
+#
+# # put it together with stuff that was only run once
+# one_run = tmp4.loc[~((tmp4['RERUN'] == True) & (tmp4['CONTROL_SAMPLE'] == 'Test'))]
+# one_run.loc[:, 'RUN_NUM'] = 1
+# tmp5 = pd.concat([one_run, rerun_samples_sorted], axis=0)
+#
+# # OUTCOME PLOIDY and SEX
+# tmp6 = tmp5.merge(outcome_data, how='left', left_on='PROPS_ID', right_on='SID')
+# tmp6['FETAL_SEX'] = np.where(tmp6['OUTCOME_SEX'].isnull() == True, tmp6['FETAL_SEX'], tmp6['OUTCOME_SEX'])
+#
+# # KNOWN PLOIDY
+# sercare = ['1902150150', '1902150160', '1902150162']
+#
+# calls = calls.to_frame()
+# calls.reset_index(inplace=True)
+# calls.columns = ['SAMPLE_ID', 'KNOWN_PLOIDY']
+# calls['PROPS_ID'] = calls['SAMPLE_ID'].str.split('_').str[-1]
+# calls.drop_duplicates(subset='PROPS_ID', inplace=True, keep='first')
+# tmp7 = tmp6.merge(calls[['PROPS_ID', 'KNOWN_PLOIDY']], how='left', left_on='PROPS_ID', right_on='PROPS_ID')
+#
+# tmp7['KNOWN_PLOIDY'] = np.where(tmp7['OUTCOME_PLOIDY'].isnull() == True, tmp7['KNOWN_PLOIDY'], tmp7['OUTCOME_PLOIDY'])
+# tmp7.loc[tmp7['PROPS_ID'].isin(sercare), 'KNOWN_PLOIDY'] = 'TRISOMY 13, TRISOMY 18, TRISOMY 21'
+# tmp7.loc[tmp7['CONTROL_SAMPLE'] == 'Control', 'KNOWN_PLOIDY'] = 'FETAL EUPLOIDY'
+# tmp7.loc[pd.isna(tmp7['FN']), 'FN'] = False
+#
+# #flag outliers
+# positives = tmp7.loc[(tmp7['KNOWN_PLOIDY'] != 'FETAL EUPLOIDY') & (tmp7['KNOWN_PLOIDY'].isnull() == False)]
+# outlier_sid = []
+#
+# for c in chr:
+#     specific = positives.loc[positives['KNOWN_PLOIDY'].str.contains(f'TRISOMY {c}|MONOSOMY {c}')]
+#     specific.loc[:, 'ABS'] = abs(specific[f'CHR{c}_TVALUE'])
+#     outlier = specific.loc[(specific[f'CHR{c}_TVALUE'] < 8) & (specific['SNP_FETAL_PCT'] > 8)]
+#     outlier_sid += outlier['SAMPLE_ID'].tolist()
+#
+# print(f'Outliers: {len(outlier_sid)}')
+# tmp7['IS_OUTLIER'] = False
+# tmp7.loc[tmp7['SAMPLE_ID'].isin(outlier_sid), 'IS_OUTLIER'] = True
+#
+# # dealing with controls, based on info from clinical
+# control_info = control_list(tmp7)
+#
+# for i, row in control_info.iterrows():
+#     cond = tmp7['PROPS_ID'] == row['PROPS_ID']
+#     tmp7.loc[cond, 'HOST_SEX']       = row['HOST_SEX']
+#     tmp7.loc[cond, 'FETAL_SEX']      = row['FETAL_SEX']
+#     tmp7.loc[cond, 'CONTROL_SAMPLE'] = row['CONTROL_SAMPLE']
+#     tmp7.loc[cond, 'KNOWN_PLOIDY']   = row['KNOWN_PLOIDY']
+#
+# # finally some clean up
+# tmp7.drop(labels=['join_helper2', 'join_helper', 'SAMPLEID.1', 'SID', 'RESULT', 'SAMPLEID_x', 'SAMPLEID_y', 'SAMPLESHEET_WELL'], axis=1, inplace=True)
+# tmp7.rename(columns={'CONTROL_SAMPLE': 'SAMPLE_TYPE', 'SAMPLETYPE': 'DNA_SOURCE'}, inplace=True)
+# tmp7.loc[tmp7['EXTRACTIONINSTRUMENTNAME'] == 'L000461', 'EXTRACTIONINSTRUMENTNAME'] = 'L00461'
+# tmp7['BMIATTIMEOFDRAW'].replace(0,np.nan, inplace=True)
+# tmp7['BMIATTIMEOFDRAW'].replace(-1,np.nan, inplace=True)
+# tmp7.loc[(tmp7['PROPS_ID'].str[0] != 'A') & (tmp7['COMPANY'].isnull()), 'COMPANY'] = 'Progenity'
+# tmp7.loc[(tmp7['PROPS_ID'].str[0] == 'A') & (tmp7['COMPANY'].isnull()), 'COMPANY'] = 'Avero'
+# tmp7.rename(columns={'PROPS_ID': 'INDIVIDUAL_ID'}, inplace=True)
+#
+# # clean up failures
+# failed = tmp7.loc[tmp7['REPORTED_PLOIDY'].str.contains('Fail') | tmp7['REPORTED_PLOIDY'].str.contains('FAIL')]
+#
+# not_failed_reported = tmp7.loc[~(tmp7['REPORTED_PLOIDY'].str.contains('Fail') | tmp7['REPORTED_PLOIDY'].str.contains('FAIL')) & (tmp7['REPORTED_PLOIDY'].isnull() == False)]
+# not_failed_or_reported = tmp7.loc[~(tmp7['REPORTED_PLOIDY'].str.contains('Fail') | tmp7['REPORTED_PLOIDY'].str.contains('FAIL')) & (tmp7['REPORTED_PLOIDY'].isnull() == True)]
+# failed['REPORTED_PLOIDY'] = failed['REPORTED_PLOIDY'].str.split(',').str[0] # get rid of duplicate comma sep entries for failures
+# tmp8 = pd.concat([failed, not_failed_reported, not_failed_or_reported], axis=0, sort=False)
+#
+# failed = tmp8.loc[tmp8['KNOWN_PLOIDY'].str.contains('Fail') | tmp8['KNOWN_PLOIDY'].str.contains('FAIL')]
+# failed['IS_FAIL'] = 'TRUE'
+# not_failed = tmp8.loc[~(tmp8['KNOWN_PLOIDY'].str.contains('Fail') | tmp8['KNOWN_PLOIDY'].str.contains('FAIL'))]
+# not_failed['IS_FAIL'] = 'FALSE'
+# failed['KNOWN_PLOIDY'] = failed['KNOWN_PLOIDY'].str.split(',').str[0] # get rid of duplicate comma sep entries for failures
+# tmp9 = pd.concat([failed, not_failed], axis=0, sort=False)
+#
+# # fixing weird user entry
+# tmp9.loc[tmp9['PLATESETUPUSERNAME'] == 'matthew.o&#39;hara', 'PLATESETUPUSERNAME']           = 'matthew.ohara'
+# tmp9.loc[tmp9['TARGETEDCAPTUREUSERNAME'] == 'matthew.o&#39;hara', 'TARGETEDCAPTUREUSERNAME'] = 'matthew.ohara'
+# tmp9.loc[tmp9['INDEXINGPCRUSERNAME'] == 'matthew.o&#39;hara', 'INDEXINGPCRUSERNAME']         = 'matthew.ohara'
+#
+# # add truth info for validation flowcells
+# tmp9['SOURCE'] = 'PRODUCTION'
+# tmp9.loc[tmp9['FLOWCELL'].isin(avero_validation_fc), 'SOURCE'] = 'VALIDATION'
+# tmp9.loc[tmp9['FLOWCELL'].isin(other_fc), 'SOURCE'] = 'EXPERIMENT'
+#
+# clinical   = tmp9.loc[tmp9['SOURCE'] == 'PRODUCTION']
+# validation = tmp9.loc[tmp9['SOURCE'] == 'VALIDATION']
+# other      = tmp9.loc[tmp9['SOURCE'] == 'EXPERIMENT']
+#
+# #these are the constitutional T21 samples
+# other.loc[other['INDIVIDUAL_ID'].str.contains('p'), 'KNOWN_PLOIDY'] = 'TRISOMY 21'
+# # other.loc[other['INDIVIDUAL_ID'].str.contains('p'), 'SNP_FETAL_PCT'] = 1.0
+#
+# validation.drop(labels=['INDIVIDUAL_ID', 'FLOWCELL', 'PREGNANCYTYPE', 'FETAL_SEX', 'KNOWN_PLOIDY'], axis=1, inplace=True)
+#
+# # drop remnants
+# validation = validation.loc[validation['SAMPLE_ID'].isin(validation_truth['SAMPLE_ID'])]
+# val_truth = validation.set_index('SAMPLE_ID').join(validation_truth.set_index('SAMPLE_ID'), sort=False, how='left', on='SAMPLE_ID')
+# val_truth.reset_index(inplace=True)
+# full = pd.concat([clinical, val_truth, other], axis=0, sort=False)
+#
+# full.to_csv('manifest_branch_v11.tsv', sep='\t', index=None)
+#
