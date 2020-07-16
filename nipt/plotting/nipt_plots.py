@@ -206,17 +206,12 @@ def nipt_null_histogram(call_file_path, title, output_file, plot_x=False, by_sex
     x = np.linspace(-5, 5, 1000)
     norm = stats.norm().pdf(x)
 
-    if not by_sex:
+    if (not by_sex) and (not plot_x):
         fig = plt.figure()
         sns.lineplot(x, norm, color='k', label='Standard Normal')
         sns.kdeplot(data.loc[data['CHR13_CALL'] == 'FETAL EUPLOIDY', 'CHR13_TVALUE'], color='r', label='CHR13 T-Value')
         sns.kdeplot(data.loc[data['CHR18_CALL'] == 'FETAL EUPLOIDY', 'CHR18_TVALUE'], color='g', label='CHR18 T-Value')
         sns.kdeplot(data.loc[data['CHR21_CALL'] == 'FETAL EUPLOIDY', 'CHR21_TVALUE'], color='b', label='CHR21 T-Value')
-
-        if plot_x:
-            sns.kdeplot(data.loc[data['CHRXY_CALL'] == 'FETAL EUPLOIDY, FEMALE', 'CHRX_TVALUE'], color='orange',
-                        label='CHRX T-Value')
-            print(f'CHRX_TVALUE: {data.loc[data["CHRXY_CALL"] == "FETAL EUPLOIDY, FEMALE", "CHRX_TVALUE"].mean()}')
 
         plt.xlabel('T-Value')
         plt.title(title)
@@ -228,6 +223,19 @@ def nipt_null_histogram(call_file_path, title, output_file, plot_x=False, by_sex
         print(f'CHR18_TVALUE: {data.loc[data["CHR18_CALL"] == "FETAL EUPLOIDY", "CHR18_TVALUE"].mean()}')
         print(f'CHR21_TVALUE: {data.loc[data["CHR21_CALL"] == "FETAL EUPLOIDY", "CHR21_TVALUE"].mean()}')
 
+    elif plot_x and (not by_sex):
+        fig = plt.figure()
+        sns.lineplot(x, norm, color='k', label='Standard Normal')
+        sns.kdeplot(data.loc[data['CHRXY_CALL'] == 'FETAL EUPLOIDY, FEMALE', 'CHRX_TVALUE'], color='orange',
+                    label='CHRX T-Value')
+        print(f'CHRX_TVALUE: {data.loc[data["CHRXY_CALL"] == "FETAL EUPLOIDY, FEMALE", "CHRX_TVALUE"].mean()}')
+
+        plt.xlabel('T-Value')
+        plt.title(title)
+        plt.vlines(0, min(norm), 0.42, colors='k', linestyles='dotted')
+        plt.ylim(min(norm), 0.42)
+        plt.legend(frameon=False)
+        
 
     else:
         fig, [ax1, ax2] = plt.subplots(2, 1, sharex=True)
