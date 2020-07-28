@@ -4,6 +4,8 @@ import numpy as np
 import plotnine as p9
 
 from datetime import datetime as dt
+from mizani.breaks import date_breaks
+from mizani.formatters import date_format
 
 from plotnine          import *
 from pathlib import Path
@@ -52,13 +54,13 @@ def t_ggplot(calculations, chrom,ymin,ymax, title, poly_model_changes, output_fi
         + geom_errorbar(aes(ymin=f'AVG_CHR{chrom}_TVALUE-1.96*CHR{chrom}_TVALUE_SE', ymax=f'AVG_CHR{chrom}_TVALUE+1.96*CHR{chrom}_TVALUE_SE'))\
         + theme_bw() \
         + theme(axis_text=element_text(color='black'),
-            axis_text_x=element_text(angle=45, hjust=1),
+            axis_text_x=element_text(angle=90, hjust=1, size=6),
             panel_grid_major = element_blank(),
-            panel_grid_minor = element_blank(), figure_size=(15,4)) \
-        + p9.labels.xlab('Analysis Week') + p9.labels.ylab(f'Mean chr{chrom} T-value')+p9.ggtitle(title)\
-        + scale_y_continuous(breaks=np.arange(ymin, ymax, 0.1), limits=(ymin, ymax))\
+            panel_grid_minor = element_blank(), figure_size=(15,2.5), ) \
+        + p9.labels.xlab('Analysis Week') + p9.labels.ylab(f'Mean chr{chrom} T-value')\
+        + scale_y_continuous(breaks=np.arange(ymin, ymax, 0.2), limits=(ymin, ymax)) \
         + geom_segment(poly_model_changes, aes(x='ANALYSIS_WEEK', xend='ANALYSIS_WEEK', y=ymin, yend=(ymax)), inherit_aes=False, linetype='--', color='purple') \
-        + geom_text(poly_model_changes, aes(x='ANALYSIS_WEEK', y=text_pos, label='version', angle=(90)), inherit_aes=False, ha='right') \
+        + geom_text(poly_model_changes, aes(x='ANALYSIS_WEEK', y=text_pos, label='version', angle=(90)), inherit_aes=False, ha='right', size=8) \
         + p9.geom_hline(yintercept=0, linetype='dotted', color='grey')
 
     k.save(output_file, format='png', dpi=500)
@@ -123,40 +125,45 @@ def main():
     })
     poly_version_changes['date'] = pd.to_datetime(poly_version_changes['date'])
     poly_version_changes['ANALYSIS_WEEK'] = poly_version_changes['date'].apply(lambda dt: dt.strftime('%Y-%W') if dt else None)
-    poly_version_changes = poly_version_changes[poly_version_changes['ANALYSIS_WEEK'] >= sept_cutoff]
+    #poly_version_changes = poly_version_changes[poly_version_changes['ANALYSIS_WEEK'] >= sept_cutoff]
 
     poly_model_changes = pd.DataFrame({
         'date': ['2019-05-02', '2019-10-08'],
-        'version': ['v1.3.0 | model v2.0.0', 'v2.0.0 | model v3.1.0'],
+        'version': ['model v2.0.0', 'model v3.1.0'],
     })
 
     poly_model_changes['date'] = pd.to_datetime(poly_model_changes['date'])
     poly_model_changes['ANALYSIS_WEEK'] = poly_model_changes['date'].apply(lambda dt: dt.strftime('%Y-%W') if dt else None)
-    poly_model_changes = poly_model_changes[poly_model_changes['ANALYSIS_WEEK'] >= sept_cutoff]
+    #poly_model_changes = poly_model_changes[poly_model_changes['ANALYSIS_WEEK'] >= sept_cutoff]
 
     poly_version_changes['date'] = pd.to_datetime(poly_version_changes['date'])
     poly_version_changes['ANALYSIS_WEEK'] = poly_version_changes['date'].apply(lambda dt: dt.strftime('%Y-%W') if dt else None)
-    poly_version_changes = poly_version_changes[poly_version_changes['ANALYSIS_WEEK'] >= sept_cutoff]
+    #poly_version_changes = poly_version_changes[poly_version_changes['ANALYSIS_WEEK'] >= sept_cutoff]
 
-    main_dir = Path('/mnt/ruo_rw/rnd/SCRUM_Outputs/NIPT_9002/BFX-1130_NB_model4o/')
-    prod = pd.read_csv(main_dir / 'manifest_sept2019.tsv', sep='\t', header=0)
-    model40 = pd.read_csv(main_dir / 'calls_model4o.tsv', sep='\t', header=0)
-    model40.drop(labels=['KNOWN_PLOIDY'], axis=1, inplace=True)
-    model40 = model40.join(prod[['SAMPLE_ID', 'INDIVIDUAL_ID', 'SAMPLE_TYPE', 'ANALYSIS_DATETIME', 'KNOWN_PLOIDY', 'COMPANY']].set_index(keys='SAMPLE_ID'), sort=False, how='left', on='SAMPLE_ID')
+    #main_dir = Path('/mnt/ruo_rw/rnd/SCRUM_Outputs/NIPT_9002/BFX-1130_NB_model4o/')
+    main_dir = Path('/mnt/ruo_rw/rnd/SCRUM_Outputs/NIPT_9002/BFX-1296_NB_test_model_4/time_series')
+    #prod = pd.read_csv(main_dir / 'manifest_sept2019.tsv', sep='\t', header=0)
+    prod = pd.read_csv('/mnt/bfx_projects/nipt_lifecycle/data/manifest.tsv', sep='\t', header=0)
+    # model40 = pd.read_csv(main_dir / 'calls_model4o.tsv', sep='\t', header=0)
+    # model40.drop(labels=['KNOWN_PLOIDY'], axis=1, inplace=True)
+    # model40 = model40.join(prod[['SAMPLE_ID', 'INDIVIDUAL_ID', 'SAMPLE_TYPE', 'ANALYSIS_DATETIME', 'KNOWN_PLOIDY', 'COMPANY']].set_index(keys='SAMPLE_ID'), sort=False, how='left', on='SAMPLE_ID')
 
 
     # calculations
     prod_calculations = format_df(prod, prod=True)
-    mod4_calculations = format_df(model40, prod=False)
+    #mod4_calculations = format_df(model40, prod=False)
 
     chr = ['13', '18', '21']
-    ymin = [-1.3, -1, -1]
-    ymax = [0.2, 0.5, 0.2]
+    # ymin = [-1.3, -1, -1]
+    # ymax = [0.2, 0.5, 0.2]
 
-    # for i, c in enumerate(chr):
-    #
-    #     t_ggplot(prod_calculations, c, ymin[i], ymax[i], f'Production: chr{c} Mean T-Value by Week', poly_model_changes, main_dir / 'time_series'/ f'prod_chr{c}.png')
-    #     t_ggplot(mod4_calculations, c, ymin[i], ymax[i], f'Model 4.0: chr{c} Mean T-Value by Week', poly_model_changes, main_dir / 'time_series'/  f'mod4_chr{c}.png')
+    ymin = [-1.2, -1.2, -1.2]
+    ymax = [1.2, 1.2, 1.2]
+
+    for i, c in enumerate(chr):
+
+        t_ggplot(prod_calculations, c, ymin[i], ymax[i], f'Production: chr{c} Mean T-Value by Week', poly_model_changes, main_dir / f'prod_chr{c}.png')
+        #t_ggplot(mod4_calculations, c, ymin[i], ymax[i], f'Model 4.0: chr{c} Mean T-Value by Week', poly_model_changes, main_dir / 'time_series'/  f'mod4_chr{c}.png')
 
 
     # prod_calculations.loc[prod_calculations['COMPANY'] == 'Avero', 'MODEL']     = 'Avero - Production'
@@ -174,12 +181,12 @@ def main():
     #     t_ggplot_together(all_calc.loc[all_calc['COMPANY'] == 'Progenity'], c, ymin[i], ymax[i], f'Progenity: chr{c} Mean T-Value by Analysis Week', poly_model_changes, main_dir / 'time_series'/ f'chr{c}_progenity.png', line=True)
     #     t_ggplot_together(all_calc.loc[all_calc['COMPANY'] == 'Avero'], c, ymin[i], ymax[i], f'Avero: chr{c} Mean T-Value by Analysis Week', poly_model_changes, main_dir / 'time_series' / f'chr{c}_avero.png')
 
-    avero_data     = pd.read_csv(main_dir / 'avero_ratio_4_prod.txt', sep='\t', header=0)
-    progenity_data = pd.read_csv(main_dir / 'progenity_ratio_4_prod.txt', sep='\t', header=0)
-
-    for c in chr:
-        ratio_ggplot(avero_data, c,     f'chr{c} Model 4.0:Prod Progenity T-value Ratio', main_dir / 'ratios' / f'chr{c}_avero_ratio.png')
-        ratio_ggplot(progenity_data, c, f'chr{c} Model 4.0:Prod Avero T-value Ratio',     main_dir / 'ratios' / f'chr{c}_progenity_ratio.png')
+    # avero_data     = pd.read_csv(main_dir / 'avero_ratio_4_prod.txt', sep='\t', header=0)
+    # progenity_data = pd.read_csv(main_dir / 'progenity_ratio_4_prod.txt', sep='\t', header=0)
+    #
+    # for c in chr:
+    #     ratio_ggplot(avero_data, c,     f'chr{c} Model 4.0:Prod Progenity T-value Ratio', main_dir / 'ratios' / f'chr{c}_avero_ratio.png')
+    #     ratio_ggplot(progenity_data, c, f'chr{c} Model 4.0:Prod Avero T-value Ratio',     main_dir / 'ratios' / f'chr{c}_progenity_ratio.png')
 
 if __name__ == '__main__':
     main()

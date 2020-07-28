@@ -1,3 +1,4 @@
+import argparse
 import pandas as pd
 import plotnine        as p9
 import statsmodels.api as sm
@@ -35,7 +36,7 @@ def extract(data, contig):
     return pd.DataFrame(
         {
             'CONTIG':  contig.replace('CHR', 'chr'),
-            'TVALUE':  data[f'{contig}_TVALUE'],
+            'TVALUE':  abs(data[f'{contig}_TVALUE']),
             'SNP_FETAL_PCT'    :  data['SNP_FETAL_PCT'],
             'MODEL'            :  data['MODEL'],
         },
@@ -47,7 +48,8 @@ def plot_stuff(joint_calls, outfile, xlim=None):
     t13 = joint_calls.loc[joint_calls['KNOWN_PLOIDY'].str.contains('TRISOMY 13', na=False)]
     t18 = joint_calls.loc[joint_calls['KNOWN_PLOIDY'].str.contains('TRISOMY 18', na=False)]
     t21 = joint_calls.loc[joint_calls['KNOWN_PLOIDY'].str.contains('TRISOMY 21', na=False)]
-    tX = joint_calls.loc[joint_calls['KNOWN_PLOIDY'].str.contains('XXX', na=False)]
+    tX = joint_calls.loc[(joint_calls['KNOWN_PLOIDY'].str.contains('XXX', na=False)) | (joint_calls['KNOWN_PLOIDY'].str.contains('X0', na=False))]
+    #tX0 = joint_calls.loc[joint_calls['KNOWN_PLOIDY'].str.contains('X0', na=False)]
 
     aneuploid = pd.concat([extract(t13, 'CHR13'),
                            extract(t18, 'CHR18'),
@@ -64,7 +66,7 @@ def plot_stuff(joint_calls, outfile, xlim=None):
         + p9.theme_bw() \
         + p9.theme(axis_text_y=p9.element_text(size=6)) \
         + p9.theme(legend_position='bottom') \
-        + p9.geom_hline(yintercept=6, linetype='dashed', color='red') \
+        + p9.geom_hline(yintercept=4, linetype='dashed', color='red') \
         + p9.labs(color='')
 
     if xlim:
@@ -72,36 +74,30 @@ def plot_stuff(joint_calls, outfile, xlim=None):
 
     p.save(outfile, format='png', dpi=500)
 
-# main_dir = Path('/mnt/ruo_rw/rnd/SCRUM_Outputs/NIPT_9002/BFX-1130_NB_model4o/')
-# manifest = pd.read_csv(main_dir /'manifest_sept2019.tsv', sep='\t', header=0)
-# model_4o = pd.read_csv(main_dir / 'calls_model4o.tsv', sep='\t', header=0)
-#
-# manifest['MODEL'] = 'Model 3.1'
-# model_4o['MODEL'] = 'Model 4.0'
 
-# merge in known ploidy from manifest
-#model_4o = model_4o.join(manifest['KNOWN_PLOIDY'], sort=False, how='left', on='SAMPLE_ID')
+def arg_parser():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('model',    type=str,  help='candidate model name')
+    parser.add_argument('manifest', type=Path, help='path to manifest file')
+    parser.add_argument('calls',    type=Path, help='path to calls file')
+    parser.add_argument('out_file', type=Path, help='output file name')
 
+    return parser
 
-main_dir = Path('/mnt/ruo_rw/rnd/staff/nilanthy.balendra/model5/model_analysis/model5_0601')
-manifest = pd.read_csv('/mnt/ruo_rw/rnd/staff/nilanthy.balendra/model5/model_analysis/2_model5_0607/short_manifest.tsv', sep='\t', header=0)
-model_candidate = pd.read_csv(main_dir /'calls_model5.tsv', sep='\t', header=0)
-#model_candidate2 = pd.read_csv('/mnt/ruo_rw/rnd/staff/nilanthy.balendra/model5/model_analysis/2_model5_0607/calls_model5_mm1.tsv', sep='\t', header=0)
+def cli():
+    parser = arg_parser()
+    args = parser.parse_args()
 
-manifest['MODEL'] = 'Model 3.1'
-model_candidate['MODEL'] = 'Model 5'
-#model_candidate2['MODEL'] = 'Model 5 1mm'
+    manifest = pd.read_csv(args.manifest, sep='\t', header=0)
+    model_candidate = pd.read_csv(args.calls,sep='\t', header=0)
+    manifest['MODEL'] = 'Model 3.1'
+    model_candidate['MODEL'] = f'Model {args.model}'
 
-all = pd.concat([manifest, model_candidate], join='inner')
+    manifest = manifest.loc[manifest['SAMPLE_ID'].isin(model_candidate['SAMPLE_ID'])]
+    all = pd.concat([manifest, model_candidate], join='inner')
 
-
-#plot
-#all.to_csv('/mnt/ruo_rw/rnd/staff/nilanthy.balendra/tools/adhoc_scripts/sept_plots/sept.tsv', sep='\t')
-plot_stuff(all, '/mnt/ruo_rw/rnd/staff/nilanthy.balendra/model5/model_analysis/2_model5_0607/for_presentation/LOD_6.png')
+    plot_stuff(all, args.out_file)
 
 
-# only_reruns = joint_calls.loc[joint_calls['INDIVIDUAL_ID'].isin(rerun_individual_id)]
-# plot_stuff(only_reruns, 'joint_calls.png')
-#
-# plot_stuff(joint_calls.loc[joint_calls['SNP_FETAL_PCT'] > 6], 'all_calls_ff_6.png')
-# plot_stuff(only_reruns.loc[only_reruns['SNP_FETAL_PCT'] > 6], 'joint_calls_ff_6.png')
+if __name__ == '__main__':
+    cli()

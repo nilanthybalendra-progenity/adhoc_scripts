@@ -92,7 +92,7 @@ def nipt_null_x(call_1_path, call_2_path, title, output_file, male=False):
     #      mod_3 = "Model 5, 1mm"
 
     mod_1 = "Model 3.1"
-    mod_2 = "Model 5"
+    mod_2 = "Model 4b"
 
     if male:
         sort_crit = 'FETAL EUPLOIDY, MALE'
@@ -235,7 +235,7 @@ def nipt_null_histogram(call_file_path, title, output_file, plot_x=False, by_sex
         plt.vlines(0, min(norm), 0.42, colors='k', linestyles='dotted')
         plt.ylim(min(norm), 0.42)
         plt.legend(frameon=False)
-        
+
 
     else:
         fig, [ax1, ax2] = plt.subplots(2, 1, sharex=True)
