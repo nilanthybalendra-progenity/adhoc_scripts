@@ -21,15 +21,14 @@ def aggregate_counts(args):
         place = 'old'
 
     else: #it is in the new spot
-        main_dir = Path('/mnt/prod_bfx_analysis_ro/analysis_data/progenity_workflow_polyphemus/sample_result')
+        #main_dir = Path('/mnt/prod_bfx_analysis_ro/analysis_data/progenity_workflow_polyphemus/sample_result')
+        main_dir = Path('/mnt/bfx_analysis/archives/other/old_results/polyphemus/sample_result/2019') #archive location for avero locations
         files = pd.DataFrame()
         files['BFX_ID'] = [s for s in os.listdir(main_dir) if s.split('_')[0] in fc]
         files['SAMPLE_ID'] = files['BFX_ID'].str[:-4]  # remove version tag
-
         files['TIME'] = [os.stat(main_dir / s).st_ctime for s in files['BFX_ID'].tolist()]
         files.sort_values(by='TIME', inplace=True)
         files.drop_duplicates(subset='SAMPLE_ID', keep='last', inplace=True) #take the latest run of the samples
-
         samples = files['BFX_ID'].tolist()
         place = 'new'
 

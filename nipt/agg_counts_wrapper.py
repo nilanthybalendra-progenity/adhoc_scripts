@@ -15,7 +15,7 @@ def cluster(args):
     sbatch_cmd = ['sbatch','-n', '4']
 
     for i, fc in enumerate(fc_list):
-        print(i)
+        print(fc)
         cmd = f'python3 agg_counts.py {fc} {out_dir}'
         proc = Popen(sbatch_cmd, stdin=PIPE, stdout=PIPE, encoding='utf-8')
         proc.communicate('#!/bin/bash\n\n' + cmd + '\n')
