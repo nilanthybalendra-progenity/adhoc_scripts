@@ -79,6 +79,15 @@ def format_compare(compare, fc_id1, fc_id2, sorter, dup_logic=False, cnv=False):
     return compare.loc[:, cols]
 
 
+def get_props_id(df):
+    if np.all(df['SAMPLE_ID'].str.contains('_')):
+        df['PROPS_ID'] = df['SAMPLE_ID'].str.split('_').str[-1]
+
+    else:
+        df['PROPS_ID'] = df['SAMPLE_ID'].str.split('-').str[-1]
+
+    return df
+
 def compare_rt(f1_rt, f2_rt, fc_id1, fc_id2):
     """Compares readthrough calls (ploidy and call_quality) between two flowcells. Returns dataframe of results.
 
@@ -91,21 +100,27 @@ def compare_rt(f1_rt, f2_rt, fc_id1, fc_id2):
     Returns: dataframe
 
     """
-    f1_rt['PROPS_ID'] = f1_rt['SAMPLE_ID'].str.split('_').str[-1]
-    f2_rt['PROPS_ID'] = f2_rt['SAMPLE_ID'].str.split('_').str[-1]
+    # f1_rt['PROPS_ID'] = f1_rt['SAMPLE_ID'].str.split('_').str[-1]
+    # f2_rt['PROPS_ID'] = f2_rt['SAMPLE_ID'].str.split('_').str[-1]
+    f1_rt = get_props_id(f1_rt)
+    f2_rt = get_props_id(f2_rt)
 
     f1_rt = f1_rt.astype({'ALLELE_PLOIDY': 'str', 'REFERENCE_PLOIDY': 'str', 'OTHER_PLOIDY': 'str'})
     f2_rt = f2_rt.astype({'ALLELE_PLOIDY': 'str', 'REFERENCE_PLOIDY': 'str', 'OTHER_PLOIDY': 'str'})
 
     #drop columns that probably won't match. Not sure about including variant quality here.
-    f1_rt.drop(['SAMPLE_ID', 'VARIANT_QUALITY', 'ALLELE_READS',	'REFERENCE_READS', 'OTHER_READS'], axis=1, inplace=True) #drop columns that definitely aren't the same between the two
-    f2_rt.drop(['SAMPLE_ID', 'VARIANT_QUALITY', 'ALLELE_READS', 'REFERENCE_READS', 'OTHER_READS'], axis=1, inplace=True)
+    f1_rt.drop(['SAMPLE_ID', 'ALLELE_READS',	'REFERENCE_READS', 'OTHER_READS', 'BFX_RT_COVERAGE', 'BFX_RT_ALLELERATIO', 'BFX_RT_ZYGOSITY'], axis=1, inplace=True) #drop columns that definitely aren't the same between the two
+    f2_rt.drop(['SAMPLE_ID', 'ALLELE_READS', 'REFERENCE_READS', 'OTHER_READS', 'BFX_RT_COVERAGE', 'BFX_RT_ALLELERATIO', 'BFX_RT_ZYGOSITY'], axis=1, inplace=True)
 
     compare = pd.merge(f1_rt, f2_rt,
-                       on=['PROPS_ID', 'ALLELE_ID', 'STATUS', 'TYPE', 'GENE', 'MARKET_NAME', 'DISEASE', 'CALL_QUALITY',
+                       on=['PROPS_ID', 'ALLELE_ID', 'STATUS', 'TYPE', 'GENE', 'MARKET_NAME', 'DISEASE', 'CALL QUALITY', 'VARIANT_QUALITY',
                            'ALLELE_PLOIDY', 'REFERENCE_PLOIDY', 'OTHER_PLOIDY'], how='outer', indicator='Exist')
 
-    return format_compare(compare, fc_id1, fc_id2,['PROPS_ID', 'ALLELE_ID'], dup_logic=True)
+    compare_formatted = format_compare(compare, fc_id1, fc_id2,['PROPS_ID', 'ALLELE_ID'], dup_logic=True)
+    compare_formatted['FLAG_CALL_QUAL<=30'] = compare_formatted['CALL QUALITY'] <= 30
+    compare_formatted['FLAG_VARIANT_QUAL<=1000'] = compare_formatted['VARIANT_QUALITY'] <= 1000
+
+    return compare_formatted
 
 
 def compare_cnv(f1_cnv, f2_cnv, fc_id1, fc_id2):
@@ -120,14 +135,16 @@ def compare_cnv(f1_cnv, f2_cnv, fc_id1, fc_id2):
     Returns: dataframe
 
     """
-    f1_cnv['PROPS_ID'] = f1_cnv['SAMPLE_ID'].str.split('_').str[-1]
-    f2_cnv['PROPS_ID'] = f2_cnv['SAMPLE_ID'].str.split('_').str[-1]
+    # f1_cnv['PROPS_ID'] = f1_cnv['SAMPLE_ID'].str.split('_').str[-1]
+    # f2_cnv['PROPS_ID'] = f2_cnv['SAMPLE_ID'].str.split('_').str[-1]
+    f1_cnv = get_props_id(f1_cnv)
+    f2_cnv = get_props_id(f2_cnv)
 
     f1_cnv = f1_cnv.astype({'CALL': 'str'})
     f2_cnv = f2_cnv.astype({'CALL': 'str'})
 
-    f1_cnv.drop(['SAMPLE_ID', 'GOF', 'CALL_PLOIDY', 'CALL_QUAL'], axis=1, inplace=True) #drop columns that definitely aren't the same between the two
-    f2_cnv.drop(['SAMPLE_ID', 'GOF', 'CALL_PLOIDY', 'CALL_QUAL'], axis=1, inplace=True)
+    f1_cnv.drop(['SAMPLE_ID', 'GOF', 'CALL_PLOIDY'], axis=1, inplace=True) #drop columns that definitely aren't the same between the two
+    f2_cnv.drop(['SAMPLE_ID', 'GOF', 'CALL_PLOIDY'], axis=1, inplace=True)
 
     if f1_cnv.empty | f2_cnv.empty: #if either one has no CNV calls, then we can't compare
         print("WARNING: One or both flowcells do not have any PP2/CNV calls (excluding SMN and HBA")
@@ -135,10 +152,13 @@ def compare_cnv(f1_cnv, f2_cnv, fc_id1, fc_id2):
 
     else:
         compare = pd.merge(f1_cnv, f2_cnv,
-                           on=['PROPS_ID', 'CALL_TYPE', 'REGION', 'VARIANT_ID', 'CALL', 'STATUS'],
+                           on=['PROPS_ID', 'CALL_TYPE', 'REGION', 'VARIANT_ID', 'CALL', 'CALL_QUAL', 'STATUS'],
                            how='outer', indicator='Exist')
 
-        return format_compare(compare, fc_id1, fc_id2,['PROPS_ID', 'VARIANT_ID'], dup_logic=True, cnv=True)
+        compare_formatted = format_compare(compare, fc_id1, fc_id2,['PROPS_ID', 'VARIANT_ID'], dup_logic=True, cnv=True)
+        compare_formatted['FLAG_CALL_QUAL<=30'] = compare_formatted['CALL_QUAL'] <=30
+
+        return compare_formatted
 
 
 def compare_smn_alpha(f1_smn_alpha, f2_smn_alpha, fc_id1, fc_id2):
@@ -153,8 +173,10 @@ def compare_smn_alpha(f1_smn_alpha, f2_smn_alpha, fc_id1, fc_id2):
     Returns: dataframe
 
     """
-    f1_smn_alpha['PROPS_ID'] = f1_smn_alpha['SAMPLE_ID'].str.split('_').str[-1]
-    f2_smn_alpha['PROPS_ID'] = f2_smn_alpha['SAMPLE_ID'].str.split('_').str[-1]
+    # f1_smn_alpha['PROPS_ID'] = f1_smn_alpha['SAMPLE_ID'].str.split('_').str[-1]
+    # f2_smn_alpha['PROPS_ID'] = f2_smn_alpha['SAMPLE_ID'].str.split('_').str[-1]
+    f1_smn_alpha = get_props_id(f1_smn_alpha)
+    f2_smn_alpha = get_props_id(f2_smn_alpha)
 
     f1_smn_alpha = f1_smn_alpha.astype({'SMN1 Call': 'str', 'SMN2 Call': 'str'})
     f2_smn_alpha = f2_smn_alpha.astype({'SMN1 Call': 'str', 'SMN2 Call': 'str'})
