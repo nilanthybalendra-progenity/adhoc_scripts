@@ -55,7 +55,7 @@ sample_cols = ['SAMPLE_ID', 'PROPS_ID', 'FLOWCELL', 'PLATE', 'WELL', 'CONTROL_SA
 
 #samples.tsv
 early_prod_sample  = pd.read_csv(analytical_data / 'poly_sample_early_prod.tsv', sep='\t', header=0)
-late_prod_sample   = pd.read_csv(analytical_data /'poly_sample_0622.tsv', sep='\t', header=0)
+late_prod_sample   = pd.read_csv(analytical_data /'poly_sample_0731.tsv', sep='\t', header=0)
 other_samples      = pd.read_csv(analytical_data /'HLV5WDMXX_const_T21_sample_fixed.tsv', sep='\t', header=0)
 avero_validation   = pd.read_csv(analytical_data / 'avero_validation_samples.tsv', sep='\t', header=0)
 
@@ -76,7 +76,7 @@ prod_sample_data.drop_duplicates(subset='SAMPLE_ID', keep='first', inplace=True)
 
 # run.tsv
 early_prod_run  = pd.read_csv(analytical_data / 'poly_run_early_prod.tsv', sep='\t', header=0)
-recent_prod_run = pd.read_csv(analytical_data / 'poly_run_0622.tsv', sep='\t', header=0)
+recent_prod_run = pd.read_csv(analytical_data / 'poly_run_0731.tsv', sep='\t', header=0)
 other_run       = pd.read_csv(analytical_data / 'HLV5WDMXX_const_T21_run.tsv', sep='\t', header=0)
 
 prod_run_data = pd.concat([early_prod_run, recent_prod_run, other_run], axis=0)
@@ -101,7 +101,7 @@ raw_model_calls.rename(columns={'CHR13_TVALUE': 'CHR13_TVALUE_PROD',
                                 'CHRY_TVALUE': 'CHRY_TVALUE_PROD'}, inplace=True)
 
 # metadata files
-version = 'v09' #BI extract version number
+version = 'v11' #BI extract version number
 p_run_data   = pd.read_csv(meta_data / f'progenity_run_data_{version}.tsv', sep='\t', header=0)
 a_run_data   = pd.read_csv(meta_data / f'avero_run_data_{version}.tsv', sep='\t', header=0)
 run_metadata = pd.concat([p_run_data, a_run_data], axis=0)
@@ -110,18 +110,18 @@ p_sample_data   = pd.read_csv(meta_data / f'progenity_sample_data_{version}.tsv'
 a_sample_data   = pd.read_csv(meta_data / f'avero_sample_data_{version}.tsv', sep='\t', header=0)
 sample_metadata = pd.concat([p_sample_data, a_sample_data], axis=0)
 
-sample_metadata.drop(labels=['COMPANY'], axis=1, inplace=True) #this is already in run_metadata
+sample_metadata.drop(labels=['COMPANY', 'SAMPLEID.1'], axis=1, inplace=True) #compnay is already in run_metadata, there are two SAMPLEID columns
 sample_metadata.drop_duplicates(subset='SAMPLEID', keep='first', inplace=True)
 
 #fix weird STATE values
 with open("states.json") as f:
     state_abbv = json.load(f)
 
-sample_metadata['State'] = sample_metadata.apply(
-    lambda row: row['State'] if row['State'] in state_abbv.values()
-    else state_abbv[row['State']] if row['State'] in state_abbv.keys()
-    else row['PostalCode'] if str(row['PostalCode']) in state_abbv.values()
-    else 'CA' if str(row['State'])[:2] == 'CA'
+sample_metadata['STATE'] = sample_metadata.apply(
+    lambda row: row['STATE'] if row['STATE'] in state_abbv.values()
+    else state_abbv[row['STATE']] if row['STATE'] in state_abbv.keys()
+    else row['POSTALCODE'] if str(row['POSTALCODE']) in state_abbv.values()
+    else 'CA' if str(row['STATE'])[:2] == 'CA'
     else np.nan, axis=1)
 
 p_reported = pd.read_csv(meta_data / f'progenity_reported_data_{version}.tsv', sep='\t', header=0)
@@ -278,8 +278,9 @@ for i, row in control_info.iterrows():
     tmp7.loc[cond, 'KNOWN_PLOIDY']   = row['KNOWN_PLOIDY']
 
 # finally some clean up
-tmp7.drop(labels=['join_helper2', 'join_helper', 'SampleId', 'SID', 'RESULT', 'SAMPLEID_x', 'SAMPLEID_y', 'SAMPLESHEET_WELL'], axis=1, inplace=True)
-tmp7.rename(columns={'OrderId': 'ORDER_ID', 'State': 'STATE', 'PostalCode': 'POSTAL_CODE', 'CONTROL_SAMPLE': 'SAMPLE_TYPE', 'SAMPLETYPE': 'DNA_SOURCE'}, inplace=True)
+tmp7.to_csv('tmp7.tsv', sep='\t', index=None)
+tmp7.drop(labels=['FCID', 'join_helper2', 'join_helper', 'SID', 'RESULT', 'SAMPLEID_x', 'SAMPLEID_y', 'SAMPLESHEET_WELL'], axis=1, inplace=True)
+tmp7.rename(columns={'CONTROL_SAMPLE': 'SAMPLE_TYPE', 'SAMPLETYPE': 'DNA_SOURCE'}, inplace=True)
 tmp7.loc[tmp7['EXTRACTIONINSTRUMENTNAME'] == 'L000461', 'EXTRACTIONINSTRUMENTNAME'] = 'L00461'
 tmp7['BMIATTIMEOFDRAW'].replace(0,np.nan, inplace=True)
 tmp7['BMIATTIMEOFDRAW'].replace(-1,np.nan, inplace=True)
@@ -328,4 +329,4 @@ val_truth = validation.set_index('SAMPLE_ID').join(validation_truth.set_index('S
 val_truth.reset_index(inplace=True)
 full = pd.concat([clinical, val_truth, other], axis=0, sort=False)
 
-full.to_csv('manifest_branch_0622.tsv', sep='\t', index=None)
+full.to_csv('manifest_branch_v11.tsv', sep='\t', index=None)
