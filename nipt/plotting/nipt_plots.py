@@ -226,9 +226,10 @@ def nipt_null_histogram(call_file_path, title, output_file, plot_x=False, by_sex
     elif plot_x and (not by_sex):
         fig = plt.figure()
         sns.lineplot(x, norm, color='k', label='Standard Normal')
-        sns.kdeplot(data.loc[data['CHRXY_CALL'] == 'FETAL EUPLOIDY, FEMALE', 'CHRX_TVALUE'], color='orange',
+        print('ADDED A SNP FF THRESHOLD!!!!!!')
+        sns.kdeplot(data.loc[((data['CHRXY_CALL'] == 'FETAL EUPLOIDY, FEMALE')&(data['SNP_FETAL_PCT'] >= 4.0)), 'CHRX_TVALUE'], color='orange',
                     label='CHRX T-Value')
-        print(f'CHRX_TVALUE: {data.loc[data["CHRXY_CALL"] == "FETAL EUPLOIDY, FEMALE", "CHRX_TVALUE"].mean()}')
+        print(f'CHRX_TVALUE: {data.loc[((data["CHRXY_CALL"] == "FETAL EUPLOIDY, FEMALE") & (data["SNP_FETAL_PCT"] >= 4.0)), "CHRX_TVALUE"].mean()}')
 
         plt.xlabel('T-Value')
         plt.title(title)
