@@ -168,9 +168,11 @@ def aggregate_calls(main_path, fc_id):
     rt_dfs = []
     rt_dfs_nf = []
     agg_cnv_dfs = []
+    agg_cnv_neb_dfs = []
 
     for d in dirs:
         rt = main_path / d / 'results' / 'rt.tsv'
+        cnv_neb_path = main_path / d / 'results' / 'cnv.tsv'
         cnv = main_path / d / 'cnv' / 'calls.tsv'
 
         if os.path.isfile(rt) and os.path.isfile(cnv):
@@ -188,14 +190,17 @@ def aggregate_calls(main_path, fc_id):
             rt_calls_nf = no_fp.loc[no_fp['BFX_RT_CALLSTATUS'].isin(['NOTFOUND'])]  # drop NOTFOUND calls
 
             cnv_calls = pd.read_csv(cnv, sep='\t', header=0)
+            cnv_nebula = pd.read_csv(cnv_neb_path, sep='\t', header=0)
 
             rt_dfs.append(rt_calls)
             rt_dfs_nf.append(rt_calls_nf)
             agg_cnv_dfs.append(cnv_calls)
+            agg_cnv_neb_dfs.append(cnv_nebula)
 
     all_rt_calls = pd.concat(rt_dfs, axis=0, sort=False)
     all_nf_rt_calls = pd.concat(rt_dfs_nf, axis=0, sort=False)
     agg_cnv = pd.concat(agg_cnv_dfs, axis=0, sort=False)
+    agg_cnv_neb = pd.concat(agg_cnv_neb_dfs, axis=0, sort=False)
 
     gene = []
     market_name = []
@@ -224,10 +229,10 @@ def aggregate_calls(main_path, fc_id):
     all_rt_calls.insert(5, 'MARKET_NAME', market_name)
     all_rt_calls.insert(6, 'DISEASE', disease)
 
-    return all_rt_calls, all_nf_rt_calls, agg_cnv
+    return all_rt_calls, all_nf_rt_calls, agg_cnv, agg_cnv_neb
 
 
-def create_cnv_results(calls):
+def create_cnv_results(calls, agg_cnv_nebula):
     """Reformats aggregated CNV calls into desired format. Returns two dataframes of SMN and CNV calls
 
     Args:
@@ -245,12 +250,18 @@ def create_cnv_results(calls):
     smn_alpha_only.reset_index(inplace=True)
 
     # other CNVs and PP2, but only positives
-    other = calls[~calls['REGION'].isin(['SMN1','SMN2','HBA'])]
-    only_positives = other.dropna(subset=['VARIANT_ID'])
-    only_positives.drop(labels='EXPECTED_CALL', inplace=True, axis=1)
+    other = agg_cnv_nebula[~agg_cnv_nebula['BFX_NEBULA_REGION'].isin(['SMN1','SMN2','HBA'])] # 
+    only_positives = other.loc[other['BFX_NEBULA_CALLSTATUS'] == 'FOUND']
+    # only_positives.drop(labels='EXPECTED_CALL', inplace=True, axis=1)
 
-    if not only_positives.empty: #check if there are other positive CNV variants
-        only_positives.loc[:,'STATUS'] = 'FOUND'
+    # if not only_positives.empty: #check if there are other positive CNV variants
+    #     only_positives.loc[:,'STATUS'] = 'FOUND'
+
+    #only keep columns we care about
+    only_positives = only_positives[[
+        'BFX_NEBULA_BFXID', 'BFX_NEBULA_GOF', 'BFX_NEBULA_CALLTYPE', 'BFX_NEBULA_REGION', 'BFX_NEBULA_CALL', 
+        'BFX_NEBULA_CALLPLOIDY',	'BFX_NEBULA_ZYGOSITY', 'BFX_NEBULA_CALLQUAL', 'BFX_NEBULA_CALLSTATUS', 
+        'BFX_NEBULA_GENENAME', 'BFX_NEBULA_DISORDER', 'BFX_NEBULA_ALLELEID']]
 
     other_to_output = pd.concat([only_positives])
 
@@ -297,10 +308,10 @@ def cli():
     sample_output, batch_output, flowcell_output, hs_output, fingerprints = aggregate_qc(flowcell_result_path, sample_alignment_path, fcs)
 
     print('Aggregating RT and PP1')
-    rt_pp1, rt_nf, agg_cnv = aggregate_calls(sample_result_path, fcs)
+    rt_pp1, rt_nf, agg_cnv, agg_cnv_nebula = aggregate_calls(sample_result_path, fcs)
 
     print('Aggregating SMA, Alphathal, & other positive CNVs')
-    smn_alpha, positive_CNV_PP2 = create_cnv_results(agg_cnv)
+    smn_alpha, positive_CNV_PP2 = create_cnv_results(agg_cnv, agg_cnv_nebula)
 
     print('Outputting to excel')
     with pd.ExcelWriter(f'{output_path}/{prefix}_output.xlsx') as writer:
@@ -313,8 +324,8 @@ def cli():
 
         rt_pp1.to_excel(writer, sheet_name='RT & PP1 Variants', index=None)
         smn_alpha.to_excel(writer, sheet_name='SMN & Alpha', index=None)
-        positive_CNV_PP2[positive_CNV_PP2['CALL_TYPE'] == 'GENO'].to_excel(writer, sheet_name='Other CNV', index=None)
-        positive_CNV_PP2[positive_CNV_PP2['CALL_TYPE'] == 'PLOIDY'].to_excel(writer, sheet_name='PP2', index=None)
+        positive_CNV_PP2[positive_CNV_PP2['BFX_NEBULA_CALLTYPE'] == 'GENO'].to_excel(writer, sheet_name='Other CNV', index=None)
+        positive_CNV_PP2[positive_CNV_PP2['BFX_NEBULA_CALLTYPE'] == 'PLOIDY'].to_excel(writer, sheet_name='PP2', index=None)
 
     if tsv:
         print('Outputting TSVs')
