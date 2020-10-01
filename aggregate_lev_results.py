@@ -178,7 +178,8 @@ def aggregate_calls(main_path, fc_id):
         if os.path.isfile(rt) and os.path.isfile(cnv):
 
             rt_output = pd.read_csv(rt, sep='\t', header=0)
-            no_fp = rt_output.loc[~rt_output['BFX_RT_ALLELEID'].isin(fp)] #drop fingerprint variants
+            #no_fp = rt_output.loc[~rt_output['BFX_RT_ALLELEID'].isin(fp)] #drop fingerprint variants
+            no_fp = rt_output
             no_fp = no_fp.loc[~no_fp['BFX_RT_ALLELEID'].str.contains('CYP21A2')]
 
             no_fp = no_fp[['BFX_RT_BFXID', 'BFX_RT_ALLELEID', 'BFX_RT_CALLSTATUS', 'BFX_RT_CALLTYPE', 'BFX_RT_VARIANTQUAL',
