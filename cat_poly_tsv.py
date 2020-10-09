@@ -41,8 +41,8 @@ def aggregate_tsv(suffix, out_dir):
     poly_run = pd.concat(all_run, axis=0, sort=False, join='inner')
     poly_run.to_csv(run_filename, sep='\t', index=None)
 
-    poly_run = pd.concat(all_sample, axis=0, sort=False, join='inner')
-    poly_run.to_csv(sample_filename, sep='\t', index=None)
+    poly_sample = pd.concat(all_sample, axis=0, sort=False, join='inner')
+    poly_sample.to_csv(sample_filename, sep='\t', index=None)
 
     print('Complete!')
     print(run_filename)
