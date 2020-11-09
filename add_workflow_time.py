@@ -50,7 +50,8 @@ def reformat_lot_data(file_path):
 
 
 def main():
-    manifest = pd.read_csv('manifest_branch_v13.tsv', sep='\t', header=0)
+    version = 'v14'
+    manifest = pd.read_csv(f'manifest_branch_{version}.tsv', sep='\t', header=0)
     avero_manifest = manifest.loc[manifest['COMPANY'] == 'Avero']
     progenity_manifest = manifest.loc[manifest['COMPANY'] == 'Progenity']
 
@@ -63,12 +64,12 @@ def main():
 
     print('reformat time data')
 
-    reformat_progenity_time = reformat_data('/mnt/bfx_projects/nipt_lifecycle/data/metadata/from_BI/progenity_workflow_data_v13.tsv')
-    reformat_avero_time = reformat_data('/mnt/bfx_projects/nipt_lifecycle/data/metadata/from_BI/avero_workflow_data_v13.tsv')
+    reformat_progenity_time = reformat_data(f'/mnt/bfx_projects/nipt_lifecycle/data/metadata/from_BI/progenity_workflow_data_{version}.tsv')
+    reformat_avero_time = reformat_data(f'/mnt/bfx_projects/nipt_lifecycle/data/metadata/from_BI/avero_workflow_data_{version}.tsv')
 
     print('reformat lot data')
-    reformat_progenity_lot = reformat_lot_data('/mnt/bfx_projects/nipt_lifecycle/data/metadata/from_BI/progenity_lot_data_v13.tsv')
-    reformat_avero_lot = reformat_lot_data('/mnt/bfx_projects/nipt_lifecycle/data/metadata/from_BI/avero_lot_data_v13.tsv')
+    reformat_progenity_lot = reformat_lot_data(f'/mnt/bfx_projects/nipt_lifecycle/data/metadata/from_BI/progenity_lot_data_{version}.tsv')
+    reformat_avero_lot = reformat_lot_data(f'/mnt/bfx_projects/nipt_lifecycle/data/metadata/from_BI/avero_lot_data_{version}.tsv')
 
 
     avero_manifest = avero_manifest.merge(reformat_avero_time, how='left', left_on='PLATE', right_on='PLATE')
@@ -82,7 +83,7 @@ def main():
 
     manifest_final = pd.concat([avero_manifest, progenity_manifest], axis=0, sort=False)
 
-    manifest_final.to_csv('manifest_workflow_time_lot_v13.tsv', sep='\t', index=None)
+    manifest_final.to_csv(f'manifest_workflow_time_lot_{version}.tsv', sep='\t', index=None)
 
 
     # # add in extraction well data
