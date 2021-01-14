@@ -8,8 +8,8 @@ import os
 main_path = Path('/mnt/prod_bfx_analysis_ro/analysis_data/progenity_workflow_polyphemus/flowcell_result')
 #main_path = Path('/mnt/prod_ro/sequencing/ops/production/nipt9002/results')
 
-run_filename = 'poly_run_1023.tsv'
-sample_filename = 'poly_sample_1023.tsv'
+run_filename = 'poly_run_1125.tsv'
+sample_filename = 'poly_sample_1125.tsv'
 
 fc = os.listdir(main_path)
 
@@ -31,8 +31,8 @@ for f in fc:
         all_sample.append(sample_tsv)
 
 
-poly_run = pd.concat(all_run, axis=0, sort=False, join='inner')
+poly_run = pd.concat(all_run, axis=0, sort=False, join='outer')
 poly_run.to_csv(run_filename, sep='\t', index=None)
 
-poly_run = pd.concat(all_sample, axis=0, sort=False, join='inner')
+poly_run = pd.concat(all_sample, axis=0, sort=False, join='outer')
 poly_run.to_csv(sample_filename, sep='\t', index=None)
