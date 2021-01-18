@@ -8,8 +8,8 @@ import os
 main_path = Path('/mnt/prod_bfx_analysis_ro/analysis_data/progenity_workflow_polyphemus/flowcell_result')
 #main_path = Path('/mnt/prod_ro/sequencing/ops/production/nipt9002/results')
 
-run_filename = 'poly_run_1125.tsv'
-sample_filename = 'poly_sample_1125.tsv'
+run_filename = 'poly_run_01152021.tsv'
+sample_filename = 'poly_sample_01152021.tsv'
 
 fc = os.listdir(main_path)
 

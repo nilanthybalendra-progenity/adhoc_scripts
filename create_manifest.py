@@ -55,7 +55,7 @@ sample_cols = ['SAMPLE_ID', 'PROPS_ID', 'FLOWCELL', 'PLATE', 'WELL', 'CONTROL_SA
 
 #samples.tsv
 early_prod_sample  = pd.read_csv(analytical_data / 'poly_sample_early_prod.tsv', sep='\t', header=0)
-late_prod_sample   = pd.read_csv(analytical_data /'poly_sample_1117.tsv', sep='\t', header=0)
+late_prod_sample   = pd.read_csv(analytical_data /'poly_sample_01152021.tsv', sep='\t', header=0)
 other_samples      = pd.read_csv(analytical_data /'HLV5WDMXX_const_T21_sample_fixed.tsv', sep='\t', header=0)
 avero_validation   = pd.read_csv(analytical_data / 'avero_validation_samples.tsv', sep='\t', header=0)
 
@@ -76,7 +76,7 @@ prod_sample_data.drop_duplicates(subset='SAMPLE_ID', keep='first', inplace=True)
 
 # run.tsv
 early_prod_run  = pd.read_csv(analytical_data / 'poly_run_early_prod.tsv', sep='\t', header=0)
-recent_prod_run = pd.read_csv(analytical_data / 'poly_run_1117.tsv', sep='\t', header=0)
+recent_prod_run = pd.read_csv(analytical_data / 'poly_run_01152021.tsv', sep='\t', header=0)
 other_run       = pd.read_csv(analytical_data / 'HLV5WDMXX_const_T21_run.tsv', sep='\t', header=0)
 
 prod_run_data = pd.concat([early_prod_run, recent_prod_run, other_run], axis=0)
@@ -101,7 +101,7 @@ raw_model_calls.rename(columns={'CHR13_TVALUE': 'CHR13_TVALUE_PROD',
                                 'CHRY_TVALUE': 'CHRY_TVALUE_PROD'}, inplace=True)
 
 # metadata files
-version = 'v15' #BI extract version number
+version = 'v16' #BI extract version number
 p_run_data   = pd.read_csv(meta_data / f'progenity_run_data_{version}.tsv', sep='\t', header=0)
 a_run_data   = pd.read_csv(meta_data / f'avero_run_data_{version}.tsv', sep='\t', header=0)
 run_metadata = pd.concat([p_run_data, a_run_data], axis=0)
@@ -124,10 +124,12 @@ sample_metadata['STATE'] = sample_metadata.apply(
     else 'CA' if str(row['STATE'])[:2] == 'CA'
     else np.nan, axis=1)
 
-p_reported_partial_1 = pd.read_csv(meta_data / f'progenity_reported_data_PARTIAL_{version}.tsv', sep='\t', header=0)
-p_reported_partial_2 = pd.read_csv(meta_data / f'progenity_reported_data_PARTIAL_v14.tsv', sep='\t', header=0)
+# the reported file for progenity was getting too large to output, so now partial extracts are being used
+p_reported_partial_3 = pd.read_csv(meta_data / f'progenity_reported_data_PARTIAL_{version}.tsv', sep='\t', header=0)
+p_reported_partial_2 = pd.read_csv(meta_data / f'progenity_reported_data_PARTIAL_v15.tsv', sep='\t', header=0)
+p_reported_partial_1 = pd.read_csv(meta_data / f'progenity_reported_data_PARTIAL_v14.tsv', sep='\t', header=0)
 p_reported_rest = pd.read_csv(meta_data / f'progenity_reported_data_v12.tsv', sep='\t', header=0)
-p_reported = pd.concat([p_reported_partial_1, p_reported_partial_2, p_reported_rest], axis=0).drop_duplicates(keep='last')
+p_reported = pd.concat([p_reported_partial_1, p_reported_partial_2, p_reported_partial_3,  p_reported_rest], axis=0).drop_duplicates(keep='last')
 
 a_reported = pd.read_csv(meta_data / f'avero_reported_data_{version}.tsv', sep='\t', header=0)
 
@@ -338,4 +340,4 @@ val_truth = validation.set_index('SAMPLE_ID').join(validation_truth.set_index('S
 val_truth.reset_index(inplace=True)
 full = pd.concat([clinical, val_truth, other], axis=0, sort=False)
 
-full.to_csv('manifest_branch_v15.tsv', sep='\t', index=None)
+full.to_csv('manifest_branch_v16.tsv', sep='\t', index=None)
