@@ -18,6 +18,9 @@ def special(filename, command, bifrost_data, prototype_data):
     if (filename == 'results.tsv') & (command == 'calibrator-assign'):
         bifrost_data['conc_filename']   = bifrost_data['conc_filename'].str[:-4] #remove .tsv
         prototype_data['conc_filename'] = prototype_data['conc_filename'].str[:-10] # remove _trans.tsv
+
+        bifrost_data['New_sample_name'] = bifrost_data['New_sample_name'].str.strip() #to deal with space in DCN file
+        bifrost_data['Sample_name'] = bifrost_data['Sample_name'].str.strip() #to deal with space in DCN file
     
     elif filename == 'selected_samples.tsv':
         bifrost_data['conc_trans_filename']   = bifrost_data['conc_trans_filename'].str[:-4]
@@ -32,6 +35,13 @@ def special(filename, command, bifrost_data, prototype_data):
         prototype_data['conc filename'] = prototype_data['conc filename'].str[:-10]
         bifrost_data['Dataset'] = bifrost_data['Dataset'].str.capitalize() # capitalize Comparator and Incoming
 
+    elif (filename == 'mean.tsv') & (command == 'calibrator-assign'): #to deal with space in DCN file
+        bifrost_data['New_sample_name'] = bifrost_data['New_sample_name'].str.strip()
+    
+    #to deal with ENG pilot_run1_run2_final, KIM1/pilot_run1_run2, abd PlGFdiss/pilot_run1_run2_final diffs
+    elif (filename == 'intravials.tsv'):
+        prototype_data = prototype_data.loc[prototype_data['Include_vial_in_analysis'] == True] 
+
     return bifrost_data, prototype_data
 
 
@@ -45,7 +55,7 @@ def check_exists(command, prototype_dir, bifrost_dir, prototype_files, bifrost_f
     check_file['exists'] = [os.path.isfile(f) for f in check_file['file_paths']]
 
     missing = check_file.loc[check_file['exists'] == False]
-
+    #print(check_file)
     if not missing.empty:
         raise ValueError(f'Files are missing: {missing["files"].tolist()}')
 
@@ -80,8 +90,10 @@ def check_df_equal(params, command, prototype_dir, bifrost_dir):
     if params['sort']:
         bifrost = bifrost.sort_values(by=params["by"], ignore_index=True)
         prototype  = prototype.sort_values(by=params["by"], ignore_index=True)
-
+    
+    print(f'Bifrost file: {params["bifrost_file"]}, Prototype file: {params["prototype_file"]}')
     assert_frame_equal(bifrost, prototype, check_like=True, atol=1e-3)
+    print('Results are equal!')
 
 
 def arg_parser() -> argparse.ArgumentParser:
@@ -97,7 +109,7 @@ def arg_parser() -> argparse.ArgumentParser:
 def run():
     args = arg_parser().parse_args()
 
-    config = toml.load('diff_config.toml')
+    config = toml.load('/mnt/ruo_rw/rnd/staff/nilanthy.balendra/tools/adhoc_scripts/diff_config.toml')
     
     if args.command == 'bridge-lot': 
         params = config['bridge-lot']

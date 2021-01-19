@@ -18,9 +18,10 @@ bifrost_file   = "intravials.tsv"
 prototype_col  = ["Intravial_Percent_CV", "Percent_relative_to_target_S1"]
 bifrost_col    = ["Intravial_Ratio_CV", "Ratio_relative_to_target_S1"]
 to_ratio       = ["Intravial_Ratio_CV", "Ratio_relative_to_target_S1"]
-sort           = false
+sort           = true
+by             = ["Experiment", "Run", "Vial_name"]
 drop           = false
-special        = false
+special        = true
 
 [calibrator-assign.vials]
 prototype_file = "dilution_corrected_means_per_expt.csv"
@@ -44,7 +45,7 @@ by             = ["Experiment", "Run", "Vial_type", "Vial_name", "New_sample_nam
 drop           = true
 drop_bcols     = ["Within_LOQs"]
 drop_pcols     = []
-special        = false
+special        = true
 
 [calibrator-assign.results]
 prototype_file = "combined_data.csv"
