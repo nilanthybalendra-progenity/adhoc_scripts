@@ -1,0 +1,146 @@
+[calibrator-assign]
+bifrost_files = ["concentration_per_exp.tsv", "intravials.tsv", "mean.tsv", "results.tsv", "vials.tsv"]
+prototype_files = ["mean_stats_per_expt.csv",   "mean_across_dilutions_per_expt.csv", "mean_sd_cv.csv", "combined_data.csv", "dilution_corrected_means_per_expt.csv"]
+
+[calibrator-assign.concentration_per_exp]
+prototype_file = "mean_stats_per_expt.csv"
+bifrost_file   = "concentration_per_exp.tsv"
+prototype_col  = []
+bifrost_col    = []
+to_ratio       = ["Mean_intravial_percent_cv", "Mean_percent_difference_to_target", "Intervial_Percent_CV"]
+sort           = false
+drop           = false
+special        = false
+
+[calibrator-assign.intravials]
+prototype_file = "mean_across_dilutions_per_expt.csv"
+bifrost_file   = "intravials.tsv"
+prototype_col  = ["Intravial_Percent_CV", "Percent_relative_to_target_S1"]
+bifrost_col    = ["Intravial_Ratio_CV", "Ratio_relative_to_target_S1"]
+to_ratio       = ["Intravial_Ratio_CV", "Ratio_relative_to_target_S1"]
+sort           = true
+by             = ["Experiment", "Run", "Vial_name"]
+drop           = false
+special        = true
+
+[calibrator-assign.vials]
+prototype_file = "dilution_corrected_means_per_expt.csv"
+bifrost_file   = "vials.tsv"
+prototype_col  = []
+bifrost_col    = []
+to_ratio       = []
+sort           = true
+by             = ["Experiment", "Run", "Vial_type", "Vial_name", "New_sample_name"]
+drop           = false
+special        = false
+
+[calibrator-assign.mean]
+prototype_file = "mean_sd_cv.csv"
+bifrost_file   = "mean.tsv"
+prototype_col  = ["Include_vial_in_analysis"]
+bifrost_col    = ["Include vial_in_analysis"]
+to_ratio       = []
+sort           = true
+by             = ["Experiment", "Run", "Vial_type", "Vial_name", "New_sample_name"]
+drop           = true
+drop_bcols     = ["Within_LOQs"]
+drop_pcols     = []
+special        = true
+
+[calibrator-assign.results]
+prototype_file = "combined_data.csv"
+bifrost_file   = "results.tsv"
+prototype_col  = ["Include_vial_in_analysis", "conc_trans_filename"]
+bifrost_col    = ["Include vial_in_analysis", "conc_filename"]
+to_ratio       = []
+sort           = true
+by             = ["Sample_name", "Experiment", "Vial_type", "Vial_name"]
+drop           = true
+drop_bcols     = ["Date"]
+drop_pcols     = ["Date"]
+special        = true
+
+[bridge-lot]
+bifrost_files = ["conc_difference.tsv", "conc_difference_stats.tsv", "inter_controls_cv.tsv", "intra_controls_cv.tsv", "od_means.tsv", "results.tsv", "selected_samples.tsv"]
+prototype_files = ["percent_conc_diff_per_sample.csv", "percent_conc_diff_stats.csv", "interday_cvs_means.csv", "intraday_cvs_means.csv", "od_means.csv", "pre_selection_sample_data.csv", "samples_selected_for_line_fit.csv"]
+
+[bridge-lot.inter_controls_cv]
+prototype_file = "interday_cvs_means.csv"
+bifrost_file   = "inter_controls_cv.tsv"
+prototype_col  = []
+bifrost_col    = []
+to_ratio       = []
+sort           = true
+by             = ["Dataset", "Sample type"]
+drop           = false
+special        = true
+
+[bridge-lot.intra_controls_cv]
+prototype_file = "intraday_cvs_means.csv"
+bifrost_file   = "intra_controls_cv.tsv"
+prototype_col  = []
+bifrost_col    = []
+to_ratio       = []
+sort           = true
+by             = ["Dataset", "Sample type"]
+drop           = false
+special        = true
+
+[bridge-lot.od_means]
+prototype_file = "od_means.csv"
+bifrost_file   = "od_means.tsv"
+prototype_col  = []
+bifrost_col    = []
+to_ratio       = []
+sort           = true
+by             = ["Sample type", "Sample name"]
+drop           = false
+special        = false
+
+[bridge-lot.conc_difference_stats]
+prototype_file = "percent_conc_diff_stats.csv"
+bifrost_file   = "conc_difference_stats.tsv"
+prototype_col  = ["Mean_Percent_difference"]
+bifrost_col    = ["Mean_Percent_Difference"]
+to_ratio       = []
+sort           = true
+by             = ["Sample type"]
+drop           = false
+special        = false
+
+[bridge-lot.conc_difference]
+prototype_file = "percent_conc_diff_per_sample.csv"
+bifrost_file   = "conc_difference.tsv"
+prototype_col  = []
+bifrost_col    = []
+to_ratio       = []
+sort           = true
+by             = ["sample name and day"]
+drop           = true
+drop_bcols     = ["Date"]
+drop_pcols     = ["Date"]
+special        = false
+
+[bridge-lot.selected_samples]
+prototype_file = "samples_selected_for_line_fit.csv"
+bifrost_file   = "selected_samples.tsv"
+prototype_col  = []
+bifrost_col    = []
+to_ratio       = []
+sort           = true
+by             = ["sample name", "Dataset"]
+drop           = false
+special        = true
+
+[bridge-lot.results]
+prototype_file = "pre_selection_sample_data.csv"
+bifrost_file   = "results.tsv"
+prototype_col  = ["dynex conc. ratio_Avg", "dynex conc. ratio_STDDEV", "dynex conc. ratiocv", "conc_trans_filename"]
+bifrost_col    = ["dynex conc.ratio_Avg", "dynex conc.ratio_STDDEV", "dynex conc.ratiocv", "conc filename"]
+to_ratio       = []
+sort           = true
+by             = ["sample name", "Dataset"]
+drop           = true
+drop_bcols     = ["Date", "is_selected", "is_within_LOQs", "sample type"]
+drop_pcols     = ["Date"]
+special        = true
