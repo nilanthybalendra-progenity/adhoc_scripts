@@ -50,7 +50,7 @@ def reformat_lot_data(file_path):
 
 
 def main():
-    version = 'v19'
+    version = 'v20'
     manifest = pd.read_csv(f'manifest_branch_{version}.tsv', sep='\t', header=0)
     avero_manifest = manifest.loc[manifest['COMPANY'] == 'Avero']
     progenity_manifest = manifest.loc[manifest['COMPANY'] == 'Progenity']
